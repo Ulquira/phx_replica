@@ -147,9 +147,18 @@ def ensure_mysql_table(mysql_conn, columns):
     cursor.execute(f"SHOW TABLES LIKE '{table_name}'")
     exists = cursor.fetchone() is not None
     if not exists:
-        column_defs = [f"{quote_ident('OrdenId')} INT NOT NULL PRIMARY KEY"]
+        column_defs = []
+        has_orden_id = False
         for col in columns:
-            column_defs.append(f"{quote_ident(col['name'])} {map_sql_type(col['type'])}")
+            if col['name'].lower() == 'ordenid':
+                has_orden_id = True
+                column_defs.append(f"{quote_ident(col['name'])} {map_sql_type(col['type'])} PRIMARY KEY")
+            else:
+                column_defs.append(f"{quote_ident(col['name'])} {map_sql_type(col['type'])}")
+        
+        if not has_orden_id:
+            column_defs.insert(0, f"{quote_ident('OrdenId')} INT NOT NULL PRIMARY KEY")
+
         create_sql = f"CREATE TABLE {quote_ident(table_name)} ({', '.join(column_defs)})"
         cursor.execute(create_sql)
     return table_name
