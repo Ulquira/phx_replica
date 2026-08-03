@@ -63,7 +63,7 @@ def map_sql_type(sql_type: str) -> str:
 
 def get_azure_connection():
     conn_str = (
-        "DRIVER={ODBC Driver 17 for SQL Server};"
+        "DRIVER={ODBC Driver 18 for SQL Server};"
         f"SERVER={AZURE_SERVER};"
         f"DATABASE={AZURE_DATABASE};"
         f"UID={AZURE_USER};"
