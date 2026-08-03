@@ -8,7 +8,7 @@ on:
   workflow_dispatch: # Permite ejecutarlo manualmente desde GitHub
 
 env:
-  RESOURCE_GROUP: "traking-web"
+  RESOURCE_GROUP: "Phx-replica"
   LOCATION: "eastus"
   ACR_NAME: "phxwinacr"
   ENV_NAME: "phx-win-env"
