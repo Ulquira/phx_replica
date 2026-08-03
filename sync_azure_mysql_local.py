@@ -83,6 +83,8 @@ def get_mysql_connection():
         password=MYSQL_PASSWORD,
         database=MYSQL_DATABASE,
         autocommit=True,
+        ssl_disabled=True,
+        connection_timeout=10
     )
 
 
