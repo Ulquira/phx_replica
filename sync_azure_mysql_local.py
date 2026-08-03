@@ -355,6 +355,10 @@ def sync_once():
         elif rows_processed == 0:
             print("No se encontraron filas para procesar.", flush=True)
         print(f"Inicio: {started_at.isoformat(sep=' ')}", flush=True)
+        
+        # Asignar finished_at aquí para evitar UnboundLocalError en el log de éxito
+        finished_at = datetime.now()
+        
         print(f"Fin: {finished_at.isoformat(sep=' ')}", flush=True)
         print(f"Duración: {(finished_at - started_at).total_seconds():.1f} segundos", flush=True)
         print("========================================", flush=True)
