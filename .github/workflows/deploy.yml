@@ -30,7 +30,9 @@ jobs:
       - name: Preparar Infraestructura (ACR y Entorno)
         run: |
           az group create --name ${{ env.RESOURCE_GROUP }} --location ${{ env.LOCATION }}
-          az acr create --resource-group ${{ env.RESOURCE_GROUP }} --name ${{ env.ACR_NAME }} --sku Basic --admin-enabled true
+          # Intentamos crear el ACR, pero si ya existe en otra región o grupo, fallará. 
+          # Lo ignoramos porque ya existe el registro "phxwinacr" y vamos a reutilizarlo.
+          az acr create --resource-group ${{ env.RESOURCE_GROUP }} --name ${{ env.ACR_NAME }} --sku Basic --admin-enabled true || true
           az containerapp env create --name ${{ env.ENV_NAME }} --resource-group ${{ env.RESOURCE_GROUP }} --location ${{ env.LOCATION }}
 
       - name: Iniciar sesión en ACR
