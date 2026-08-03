@@ -1,0 +1,59 @@
+name: Deploy to Azure Container Apps
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch: # Permite ejecutarlo manualmente desde GitHub
+
+env:
+  RESOURCE_GROUP: "traking-web"
+  LOCATION: "eastus"
+  ACR_NAME: "phxwinacr"
+  ENV_NAME: "phx-win-env"
+  APP_NAME: "phx-win-sync"
+  IMAGE_NAME: "phxwinacr.azurecr.io/api-phx-sync:latest"
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      - name: Iniciar sesión en Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Preparar Infraestructura (ACR y Entorno)
+        run: |
+          az group create --name ${{ env.RESOURCE_GROUP }} --location ${{ env.LOCATION }}
+          az acr create --resource-group ${{ env.RESOURCE_GROUP }} --name ${{ env.ACR_NAME }} --sku Basic --admin-enabled true
+          az containerapp env create --name ${{ env.ENV_NAME }} --resource-group ${{ env.RESOURCE_GROUP }} --location ${{ env.LOCATION }}
+
+      - name: Iniciar sesión en ACR
+        run: |
+          az acr login --name ${{ env.ACR_NAME }}
+
+      - name: Construir y subir imagen Docker
+        run: |
+          docker build -t ${{ env.IMAGE_NAME }} .
+          docker push ${{ env.IMAGE_NAME }}
+
+      - name: Desplegar en Container Apps
+        run: |
+          az containerapp create \
+            --name ${{ env.APP_NAME }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --environment ${{ env.ENV_NAME }} \
+            --image ${{ env.IMAGE_NAME }} \
+            --ingress "internal" \
+            --cpu 0.5 --memory 1.0Gi \
+            --min-replicas 1 --max-replicas 1 \
+            --env-vars "PYTHONUNBUFFERED=1" "SYNC_INTERVAL=60" \
+            "MYSQL_HOST=${{ secrets.MYSQL_HOST }}" \
+            "MYSQL_USER=${{ secrets.MYSQL_USER }}" \
+            "MYSQL_PASS=${{ secrets.MYSQL_PASS }}" \
+            "AZURE_SQL_CONNECTION_STRING=${{ secrets.AZURE_SQL_CONNECTION_STRING }}"

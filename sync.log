@@ -1,0 +1,534 @@
+2026-07-31 14:54:02,840 INFO Iniciando sincronización
+2026-07-31 14:54:25,062 ERROR Fallo la sincronización: 1064 (42000): You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '`OrdenId` BIGINT
+`TipoOrden` LONGTEXT
+`TipoTraba` LONGTEXT
+`Motivo_Trabajo` LONG' at line 3
+Traceback (most recent call last):
+  File "C:\Users\user\Desktop\Api_phx\.venv\Lib\site-packages\mysql\connector\connection_cext.py", line 772, in cmd_query
+    self._cmysql.query(
+    ~~~~~~~~~~~~~~~~~~^
+        query,
+        ^^^^^^
+    ...<3 lines>...
+        query_attrs=self.query_attrs,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+_mysql_connector.MySQLInterfaceError: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '`OrdenId` BIGINT
+`TipoOrden` LONGTEXT
+`TipoTraba` LONGTEXT
+`Motivo_Trabajo` LONG' at line 3
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\user\Desktop\Api_phx\sync_azure_mysql_local.py", line 238, in sync_once
+    table_name = ensure_mysql_table(mysql_conn, columns)
+  File "C:\Users\user\Desktop\Api_phx\sync_azure_mysql_local.py", line 140, in ensure_mysql_table
+    cursor.execute("\n".join(create_sql))
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\Desktop\Api_phx\.venv\Lib\site-packages\mysql\connector\cursor_cext.py", line 353, in execute
+    self._connection.cmd_query(
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        self._stmt_partition["mappable_stmt"],
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<2 lines>...
+        raw_as_string=self._raw_as_string,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\user\Desktop\Api_phx\.venv\Lib\site-packages\mysql\connector\opentelemetry\context_propagation.py", line 97, in wrapper
+    return method(cnx, *args, **kwargs)
+  File "C:\Users\user\Desktop\Api_phx\.venv\Lib\site-packages\mysql\connector\connection_cext.py", line 781, in cmd_query
+    raise get_mysql_exception(
+        err.errno, msg=err.msg, sqlstate=err.sqlstate
+    ) from err
+mysql.connector.errors.ProgrammingError: 1064 (42000): You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '`OrdenId` BIGINT
+`TipoOrden` LONGTEXT
+`TipoTraba` LONGTEXT
+`Motivo_Trabajo` LONG' at line 3
+2026-07-31 14:54:49,611 INFO Iniciando sincronización
+2026-07-31 14:57:42,419 INFO Iniciando sincronización
+2026-07-31 15:05:32,042 INFO Iniciando sincronización
+2026-07-31 15:06:55,618 INFO Iniciando sincronización
+2026-07-31 15:07:23,655 ERROR Fallo la sincronización: 1054 (42S22): Unknown column '__row_key' in 'field list'
+Traceback (most recent call last):
+  File "C:\Users\user\Desktop\Api_phx\.venv\Lib\site-packages\mysql\connector\connection_cext.py", line 772, in cmd_query
+    self._cmysql.query(
+    ~~~~~~~~~~~~~~~~~~^
+        query,
+        ^^^^^^
+    ...<3 lines>...
+        query_attrs=self.query_attrs,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+_mysql_connector.MySQLInterfaceError: Unknown column '__row_key' in 'field list'
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "c:\Users\user\Desktop\Api_phx\sync_azure_mysql_local.py", line 246, in sync_once
+    upsert_row(mysql_conn, table_name, columns, row, row_key, state_column)
+    ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\Users\user\Desktop\Api_phx\sync_azure_mysql_local.py", line 212, in upsert_row
+    cursor.execute(update_sql, values)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\Desktop\Api_phx\.venv\Lib\site-packages\mysql\connector\cursor_cext.py", line 353, in execute
+    self._connection.cmd_query(
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        self._stmt_partition["mappable_stmt"],
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<2 lines>...
+        raw_as_string=self._raw_as_string,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\user\Desktop\Api_phx\.venv\Lib\site-packages\mysql\connector\opentelemetry\context_propagation.py", line 97, in wrapper
+    return method(cnx, *args, **kwargs)
+  File "C:\Users\user\Desktop\Api_phx\.venv\Lib\site-packages\mysql\connector\connection_cext.py", line 781, in cmd_query
+    raise get_mysql_exception(
+        err.errno, msg=err.msg, sqlstate=err.sqlstate
+    ) from err
+mysql.connector.errors.ProgrammingError: 1054 (42S22): Unknown column '__row_key' in 'field list'
+2026-07-31 15:08:39,175 INFO Iniciando sincronización
+2026-07-31 15:09:53,590 ERROR Fallo la sincronización: 1054 (42S22): Unknown column '__row_key' in 'field list'
+Traceback (most recent call last):
+  File "C:\Users\user\Desktop\Api_phx\.venv\Lib\site-packages\mysql\connector\connection_cext.py", line 772, in cmd_query
+    self._cmysql.query(
+    ~~~~~~~~~~~~~~~~~~^
+        query,
+        ^^^^^^
+    ...<3 lines>...
+        query_attrs=self.query_attrs,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+_mysql_connector.MySQLInterfaceError: Unknown column '__row_key' in 'field list'
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "c:\Users\user\Desktop\Api_phx\sync_azure_mysql_local.py", line 246, in sync_once
+    upsert_row(mysql_conn, table_name, columns, row, row_key, state_column)
+    ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\Users\user\Desktop\Api_phx\sync_azure_mysql_local.py", line 212, in upsert_row
+    cursor.execute(update_sql, values)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\Desktop\Api_phx\.venv\Lib\site-packages\mysql\connector\cursor_cext.py", line 353, in execute
+    self._connection.cmd_query(
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        self._stmt_partition["mappable_stmt"],
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<2 lines>...
+        raw_as_string=self._raw_as_string,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\user\Desktop\Api_phx\.venv\Lib\site-packages\mysql\connector\opentelemetry\context_propagation.py", line 97, in wrapper
+    return method(cnx, *args, **kwargs)
+  File "C:\Users\user\Desktop\Api_phx\.venv\Lib\site-packages\mysql\connector\connection_cext.py", line 781, in cmd_query
+    raise get_mysql_exception(
+        err.errno, msg=err.msg, sqlstate=err.sqlstate
+    ) from err
+mysql.connector.errors.ProgrammingError: 1054 (42S22): Unknown column '__row_key' in 'field list'
+2026-07-31 15:11:21,134 INFO Iniciando sincronización
+2026-07-31 15:12:59,426 ERROR Fallo la sincronización: 1054 (42S22): Unknown column '__row_key' in 'field list'
+Traceback (most recent call last):
+  File "C:\Users\user\Desktop\Api_phx\.venv\Lib\site-packages\mysql\connector\connection_cext.py", line 772, in cmd_query
+    self._cmysql.query(
+    ~~~~~~~~~~~~~~~~~~^
+        query,
+        ^^^^^^
+    ...<3 lines>...
+        query_attrs=self.query_attrs,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+_mysql_connector.MySQLInterfaceError: Unknown column '__row_key' in 'field list'
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "c:\Users\user\Desktop\Api_phx\sync_azure_mysql_local.py", line 256, in sync_once
+    upsert_row(mysql_conn, table_name, columns, row, None, state_column, target_columns)
+    ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\Users\user\Desktop\Api_phx\sync_azure_mysql_local.py", line 221, in upsert_row
+  File "C:\Users\user\Desktop\Api_phx\.venv\Lib\site-packages\mysql\connector\cursor_cext.py", line 353, in execute
+    self._connection.cmd_query(
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        self._stmt_partition["mappable_stmt"],
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<2 lines>...
+        raw_as_string=self._raw_as_string,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\user\Desktop\Api_phx\.venv\Lib\site-packages\mysql\connector\opentelemetry\context_propagation.py", line 97, in wrapper
+    return method(cnx, *args, **kwargs)
+  File "C:\Users\user\Desktop\Api_phx\.venv\Lib\site-packages\mysql\connector\connection_cext.py", line 781, in cmd_query
+    raise get_mysql_exception(
+        err.errno, msg=err.msg, sqlstate=err.sqlstate
+    ) from err
+mysql.connector.errors.ProgrammingError: 1054 (42S22): Unknown column '__row_key' in 'field list'
+2026-07-31 15:13:03,027 INFO Iniciando sincronización
+2026-07-31 15:15:38,304 INFO Iniciando sincronización
+2026-07-31 15:20:29,696 INFO Iniciando sincronización
+2026-07-31 15:24:18,537 INFO Iniciando sincronización
+2026-07-31 15:25:13,654 INFO Iniciando sincronización
+2026-07-31 15:28:54,257 INFO Iniciando sincronización
+2026-07-31 15:32:20,290 INFO Iniciando sincronización
+2026-07-31 15:36:14,167 INFO Iniciando sincronización
+2026-08-03 10:30:11,021 INFO Iniciando sincronización
+2026-08-03 11:13:28,681 INFO Iniciando sincronización
+2026-08-03 11:18:34,459 INFO Sincronización completada: insertados=1077, actualizados=83, omitidos=365
+2026-08-03 11:18:34,459 INFO Tabla MySQL: VW_WinORdeTraba
+2026-08-03 11:18:34,459 INFO ========================================
+2026-08-03 11:18:34,460 INFO Sincronización visual: 1525 filas procesadas
+2026-08-03 11:18:34,461 INFO Insertadas: 1077
+2026-08-03 11:18:34,462 INFO Actualizadas: 83
+2026-08-03 11:18:34,463 INFO Omitidas: 365
+2026-08-03 11:18:34,463 INFO Total de cambios: 1160
+2026-08-03 11:18:34,464 INFO ========================================
+2026-08-03 11:18:39,991 INFO Iniciando sincronización
+2026-08-03 11:19:12,925 INFO Sincronización completada: insertados=17, actualizados=61, omitidos=1464
+2026-08-03 11:19:12,925 INFO Tabla MySQL: VW_WinORdeTraba
+2026-08-03 11:19:12,926 INFO ========================================
+2026-08-03 11:19:12,926 INFO Sincronización visual: 1542 filas procesadas
+2026-08-03 11:19:12,926 INFO Insertadas: 17
+2026-08-03 11:19:12,926 INFO Actualizadas: 61
+2026-08-03 11:19:12,927 INFO Omitidas: 1464
+2026-08-03 11:19:12,927 INFO Total de cambios: 78
+2026-08-03 11:19:12,927 INFO ========================================
+2026-08-03 11:20:13,630 INFO Iniciando sincronización
+2026-08-03 11:20:31,236 INFO Sincronización completada: insertados=6, actualizados=12, omitidos=1530
+2026-08-03 11:25:25,613 INFO Iniciando sincronización
+2026-08-03 11:25:52,311 INFO Sincronización completada: insertados=6, actualizados=49, omitidos=1499
+2026-08-03 11:25:52,312 INFO Tabla MySQL: VW_WinORdeTraba
+2026-08-03 11:25:52,313 INFO ========================================
+2026-08-03 11:25:52,313 INFO Sincronización visual: 1554 filas procesadas
+2026-08-03 11:25:52,314 INFO Insertadas: 6
+2026-08-03 11:25:52,315 INFO Actualizadas: 49
+2026-08-03 11:25:52,315 INFO Omitidas: 1499
+2026-08-03 11:25:52,316 INFO Total de cambios: 55
+2026-08-03 11:25:52,316 INFO ========================================
+2026-08-03 11:26:55,957 INFO Iniciando sincronización
+2026-08-03 11:27:13,433 INFO Sincronización completada: insertados=1, actualizados=20, omitidos=1534
+2026-08-03 11:27:13,433 INFO Tabla MySQL: VW_WinORdeTraba
+2026-08-03 11:27:13,433 INFO ========================================
+2026-08-03 11:27:13,434 INFO Sincronización visual: 1555 filas procesadas
+2026-08-03 11:27:13,434 INFO Insertadas: 1
+2026-08-03 11:27:13,434 INFO Actualizadas: 20
+2026-08-03 11:27:13,434 INFO Omitidas: 1534
+2026-08-03 11:27:13,435 INFO Total de cambios: 21
+2026-08-03 11:27:13,435 INFO ========================================
+2026-08-03 11:28:17,044 INFO Iniciando sincronización
+2026-08-03 11:28:45,075 INFO Sincronización completada: insertados=17, actualizados=14, omitidos=1541
+2026-08-03 11:28:45,076 INFO Tabla MySQL: VW_WinORdeTraba
+2026-08-03 11:28:45,077 INFO ========================================
+2026-08-03 11:28:45,078 INFO Sincronización visual: 1572 filas procesadas
+2026-08-03 11:28:45,078 INFO Insertadas: 17
+2026-08-03 11:28:45,079 INFO Actualizadas: 14
+2026-08-03 11:28:45,080 INFO Omitidas: 1541
+2026-08-03 11:28:45,080 INFO Total de cambios: 31
+2026-08-03 11:28:45,081 INFO ========================================
+2026-08-03 11:29:48,956 INFO Iniciando sincronización
+2026-08-03 11:30:06,858 INFO Sincronización completada: insertados=5, actualizados=14, omitidos=1558
+2026-08-03 11:30:06,859 INFO Tabla MySQL: VW_WinORdeTraba
+2026-08-03 11:30:06,859 INFO ========================================
+2026-08-03 11:30:06,860 INFO Sincronización visual: 1577 filas procesadas
+2026-08-03 11:30:06,861 INFO Insertadas: 5
+2026-08-03 11:30:06,861 INFO Actualizadas: 14
+2026-08-03 11:30:06,862 INFO Omitidas: 1558
+2026-08-03 11:30:06,862 INFO Total de cambios: 19
+2026-08-03 11:30:06,863 INFO ========================================
+2026-08-03 11:31:10,104 INFO Iniciando sincronización
+2026-08-03 11:31:28,503 INFO Sincronización completada: insertados=3, actualizados=18, omitidos=1559
+2026-08-03 11:31:28,504 INFO Tabla MySQL: VW_WinORdeTraba
+2026-08-03 11:31:28,505 INFO ========================================
+2026-08-03 11:31:28,505 INFO Sincronización visual: 1580 filas procesadas
+2026-08-03 11:31:28,506 INFO Insertadas: 3
+2026-08-03 11:31:28,506 INFO Actualizadas: 18
+2026-08-03 11:31:28,507 INFO Omitidas: 1559
+2026-08-03 11:31:28,507 INFO Total de cambios: 21
+2026-08-03 11:31:28,508 INFO ========================================
+2026-08-03 11:32:35,263 INFO Iniciando sincronización
+2026-08-03 11:32:54,550 INFO Sincronización completada: insertados=2, actualizados=12, omitidos=1568
+2026-08-03 11:32:54,551 INFO Tabla MySQL: VW_WinORdeTraba
+2026-08-03 11:32:54,552 INFO ========================================
+2026-08-03 11:32:54,552 INFO Sincronización visual: 1582 filas procesadas
+2026-08-03 11:32:54,553 INFO Insertadas: 2
+2026-08-03 11:32:54,553 INFO Actualizadas: 12
+2026-08-03 11:32:54,554 INFO Omitidas: 1568
+2026-08-03 11:32:54,554 INFO Total de cambios: 14
+2026-08-03 11:32:54,555 INFO ========================================
+2026-08-03 11:33:57,932 INFO Iniciando sincronización
+2026-08-03 11:34:17,969 INFO Sincronización completada: insertados=3, actualizados=20, omitidos=1562
+2026-08-03 11:34:17,969 INFO Tabla MySQL: VW_WinORdeTraba
+2026-08-03 11:34:17,970 INFO ========================================
+2026-08-03 11:34:17,970 INFO Sincronización visual: 1585 filas procesadas
+2026-08-03 11:34:17,971 INFO Insertadas: 3
+2026-08-03 11:34:17,971 INFO Actualizadas: 20
+2026-08-03 11:34:17,971 INFO Omitidas: 1562
+2026-08-03 11:34:17,971 INFO Total de cambios: 23
+2026-08-03 11:34:17,972 INFO ========================================
+2026-08-03 11:35:20,966 INFO Iniciando sincronización
+2026-08-03 11:35:39,909 INFO Sincronización completada: insertados=3, actualizados=13, omitidos=1572
+2026-08-03 11:35:39,909 INFO Tabla MySQL: VW_WinORdeTraba
+2026-08-03 11:35:39,910 INFO ========================================
+2026-08-03 11:35:39,910 INFO Sincronización visual: 1588 filas procesadas
+2026-08-03 11:35:39,910 INFO Insertadas: 3
+2026-08-03 11:35:39,910 INFO Actualizadas: 13
+2026-08-03 11:35:39,911 INFO Omitidas: 1572
+2026-08-03 11:35:39,911 INFO Total de cambios: 16
+2026-08-03 11:35:39,911 INFO ========================================
+2026-08-03 11:36:43,175 INFO Iniciando sincronización
+2026-08-03 11:37:01,422 INFO Sincronización completada: insertados=1, actualizados=14, omitidos=1574
+2026-08-03 11:37:01,423 INFO Tabla MySQL: VW_WinORdeTraba
+2026-08-03 11:37:01,424 INFO ========================================
+2026-08-03 11:37:01,424 INFO Sincronización visual: 1589 filas procesadas
+2026-08-03 11:37:01,425 INFO Insertadas: 1
+2026-08-03 11:37:01,426 INFO Actualizadas: 14
+2026-08-03 11:37:01,426 INFO Omitidas: 1574
+2026-08-03 11:37:01,427 INFO Total de cambios: 15
+2026-08-03 11:37:01,427 INFO ========================================
+2026-08-03 11:38:04,995 INFO Iniciando sincronización
+2026-08-03 11:38:22,210 INFO Sincronización completada: insertados=2, actualizados=12, omitidos=1577
+2026-08-03 11:38:22,212 INFO Tabla MySQL: VW_WinORdeTraba
+2026-08-03 11:38:22,212 INFO ========================================
+2026-08-03 11:38:22,213 INFO Sincronización visual: 1591 filas procesadas
+2026-08-03 11:38:22,214 INFO Insertadas: 2
+2026-08-03 11:38:22,214 INFO Actualizadas: 12
+2026-08-03 11:38:22,215 INFO Omitidas: 1577
+2026-08-03 11:38:22,215 INFO Total de cambios: 14
+2026-08-03 11:38:22,217 INFO ========================================
+2026-08-03 11:39:25,967 INFO Iniciando sincronización
+2026-08-03 11:39:54,611 INFO Sincronización completada: insertados=38, actualizados=17, omitidos=1574
+2026-08-03 11:39:54,611 INFO Tabla MySQL: VW_WinORdeTraba
+2026-08-03 11:39:54,612 INFO ========================================
+2026-08-03 11:39:54,612 INFO Sincronización visual: 1629 filas procesadas
+2026-08-03 11:39:54,612 INFO Insertadas: 38
+2026-08-03 11:39:54,613 INFO Actualizadas: 17
+2026-08-03 11:39:54,613 INFO Omitidas: 1574
+2026-08-03 11:39:54,613 INFO Total de cambios: 55
+2026-08-03 11:39:54,614 INFO ========================================
+2026-08-03 11:40:58,051 INFO Iniciando sincronización
+2026-08-03 11:41:23,387 INFO Sincronización completada: insertados=4, actualizados=46, omitidos=1583
+2026-08-03 11:41:23,388 INFO Tabla MySQL: VW_WinORdeTraba
+2026-08-03 11:41:23,389 INFO ========================================
+2026-08-03 11:41:23,389 INFO Sincronización visual: 1633 filas procesadas
+2026-08-03 11:41:23,390 INFO Insertadas: 4
+2026-08-03 11:41:23,391 INFO Actualizadas: 46
+2026-08-03 11:41:23,391 INFO Omitidas: 1583
+2026-08-03 11:41:23,392 INFO Total de cambios: 50
+2026-08-03 11:41:23,392 INFO ========================================
+2026-08-03 11:42:27,047 INFO Iniciando sincronización
+2026-08-03 11:42:46,302 INFO Sincronización completada: insertados=6, actualizados=17, omitidos=1616
+2026-08-03 11:42:46,303 INFO Tabla MySQL: VW_WinORdeTraba
+2026-08-03 11:42:46,304 INFO ========================================
+2026-08-03 11:42:46,304 INFO Sincronización visual: 1639 filas procesadas
+2026-08-03 11:42:46,305 INFO Insertadas: 6
+2026-08-03 11:42:46,306 INFO Actualizadas: 17
+2026-08-03 11:42:46,307 INFO Omitidas: 1616
+2026-08-03 11:42:46,307 INFO Total de cambios: 23
+2026-08-03 11:42:46,308 INFO ========================================
+2026-08-03 11:43:49,903 INFO Iniciando sincronización
+2026-08-03 11:44:09,656 INFO Sincronización completada: insertados=3, actualizados=22, omitidos=1617
+2026-08-03 11:44:09,657 INFO Tabla MySQL: VW_WinORdeTraba
+2026-08-03 11:44:09,658 INFO ========================================
+2026-08-03 11:44:09,659 INFO Sincronización visual: 1642 filas procesadas
+2026-08-03 11:44:09,659 INFO Insertadas: 3
+2026-08-03 11:44:09,660 INFO Actualizadas: 22
+2026-08-03 11:44:09,660 INFO Omitidas: 1617
+2026-08-03 11:44:09,661 INFO Total de cambios: 25
+2026-08-03 11:44:09,661 INFO ========================================
+2026-08-03 11:45:13,019 INFO Iniciando sincronización
+2026-08-03 11:45:40,145 INFO Sincronización completada: insertados=2, actualizados=16, omitidos=1626
+2026-08-03 11:45:40,146 INFO Tabla MySQL: VW_WinORdeTraba
+2026-08-03 11:45:40,147 INFO ========================================
+2026-08-03 11:45:40,148 INFO Sincronización visual: 1644 filas procesadas
+2026-08-03 11:45:40,149 INFO Insertadas: 2
+2026-08-03 11:45:40,149 INFO Actualizadas: 16
+2026-08-03 11:45:40,150 INFO Omitidas: 1626
+2026-08-03 11:45:40,150 INFO Total de cambios: 18
+2026-08-03 11:45:40,150 INFO ========================================
+2026-08-03 11:46:43,981 INFO Iniciando sincronización
+2026-08-03 11:47:05,061 INFO Sincronización completada: insertados=0, actualizados=21, omitidos=1623
+2026-08-03 11:47:05,062 INFO Tabla MySQL: VW_WinORdeTraba
+2026-08-03 11:47:05,062 INFO ========================================
+2026-08-03 11:47:05,063 INFO Sincronización visual: 1644 filas procesadas
+2026-08-03 11:47:05,064 INFO Insertadas: 0
+2026-08-03 11:47:05,064 INFO Actualizadas: 21
+2026-08-03 11:47:05,065 INFO Omitidas: 1623
+2026-08-03 11:47:05,066 INFO Total de cambios: 21
+2026-08-03 11:47:05,066 INFO ========================================
+2026-08-03 11:48:09,032 INFO Iniciando sincronización
+2026-08-03 11:48:30,059 INFO Sincronización completada: insertados=1, actualizados=16, omitidos=1628
+2026-08-03 11:48:30,060 INFO Tabla MySQL: VW_WinORdeTraba
+2026-08-03 11:48:30,061 INFO ========================================
+2026-08-03 11:48:30,061 INFO Sincronización visual: 1645 filas procesadas
+2026-08-03 11:48:30,062 INFO Insertadas: 1
+2026-08-03 11:48:30,062 INFO Actualizadas: 16
+2026-08-03 11:48:30,063 INFO Omitidas: 1628
+2026-08-03 11:48:30,064 INFO Total de cambios: 17
+2026-08-03 11:48:30,064 INFO ========================================
+2026-08-03 11:49:33,005 INFO Iniciando sincronización
+2026-08-03 11:49:50,528 INFO Sincronización completada: insertados=3, actualizados=13, omitidos=1632
+2026-08-03 11:49:50,528 INFO Tabla MySQL: VW_WinORdeTraba
+2026-08-03 11:49:50,529 INFO ========================================
+2026-08-03 11:49:50,530 INFO Sincronización visual: 1648 filas procesadas
+2026-08-03 11:49:50,530 INFO Insertadas: 3
+2026-08-03 11:49:50,531 INFO Actualizadas: 13
+2026-08-03 11:49:50,532 INFO Omitidas: 1632
+2026-08-03 11:49:50,532 INFO Total de cambios: 16
+2026-08-03 11:49:50,533 INFO ========================================
+2026-08-03 11:50:53,988 INFO Iniciando sincronización
+2026-08-03 11:51:13,570 INFO Sincronización completada: insertados=0, actualizados=24, omitidos=1624
+2026-08-03 11:51:13,571 INFO Tabla MySQL: VW_WinORdeTraba
+2026-08-03 11:51:13,572 INFO ========================================
+2026-08-03 11:51:13,572 INFO Sincronización visual: 1648 filas procesadas
+2026-08-03 11:51:13,573 INFO Insertadas: 0
+2026-08-03 11:51:13,573 INFO Actualizadas: 24
+2026-08-03 11:51:13,574 INFO Omitidas: 1624
+2026-08-03 11:51:13,575 INFO Total de cambios: 24
+2026-08-03 11:51:13,575 INFO ========================================
+2026-08-03 11:52:16,959 INFO Iniciando sincronización
+2026-08-03 11:52:38,423 INFO Sincronización completada: insertados=1, actualizados=14, omitidos=1634
+2026-08-03 11:52:38,423 INFO Tabla MySQL: VW_WinORdeTraba
+2026-08-03 11:52:38,424 INFO ========================================
+2026-08-03 11:52:38,425 INFO Sincronización visual: 1649 filas procesadas
+2026-08-03 11:52:38,425 INFO Insertadas: 1
+2026-08-03 11:52:38,426 INFO Actualizadas: 14
+2026-08-03 11:52:38,426 INFO Omitidas: 1634
+2026-08-03 11:52:38,427 INFO Total de cambios: 15
+2026-08-03 11:52:38,427 INFO ========================================
+2026-08-03 11:53:42,171 INFO Iniciando sincronización
+2026-08-03 11:54:06,751 INFO Sincronización completada: insertados=17, actualizados=13, omitidos=1636
+2026-08-03 11:54:06,752 INFO Tabla MySQL: VW_WinORdeTraba
+2026-08-03 11:54:06,753 INFO ========================================
+2026-08-03 11:54:06,753 INFO Sincronización visual: 1666 filas procesadas
+2026-08-03 11:54:06,754 INFO Insertadas: 17
+2026-08-03 11:54:06,754 INFO Actualizadas: 13
+2026-08-03 11:54:06,755 INFO Omitidas: 1636
+2026-08-03 11:54:06,755 INFO Total de cambios: 30
+2026-08-03 11:54:06,756 INFO ========================================
+2026-08-03 11:55:09,917 INFO Iniciando sincronización
+2026-08-03 11:55:32,706 INFO Sincronización completada: insertados=1, actualizados=18, omitidos=1648
+2026-08-03 11:55:32,707 INFO Tabla MySQL: VW_WinORdeTraba
+2026-08-03 11:55:32,708 INFO ========================================
+2026-08-03 11:55:32,709 INFO Sincronización visual: 1667 filas procesadas
+2026-08-03 11:55:32,709 INFO Insertadas: 1
+2026-08-03 11:55:32,710 INFO Actualizadas: 18
+2026-08-03 11:55:32,710 INFO Omitidas: 1648
+2026-08-03 11:55:32,711 INFO Total de cambios: 19
+2026-08-03 11:55:32,711 INFO ========================================
+2026-08-03 11:56:35,926 INFO Iniciando sincronización
+2026-08-03 11:57:04,076 INFO Sincronización completada: insertados=16, actualizados=37, omitidos=1630
+2026-08-03 11:57:04,077 INFO Tabla MySQL: VW_WinORdeTraba
+2026-08-03 11:57:04,078 INFO ========================================
+2026-08-03 11:57:04,078 INFO Sincronización visual: 1683 filas procesadas
+2026-08-03 11:57:04,079 INFO Insertadas: 16
+2026-08-03 11:57:04,080 INFO Actualizadas: 37
+2026-08-03 11:57:04,080 INFO Omitidas: 1630
+2026-08-03 11:57:04,081 INFO Total de cambios: 53
+2026-08-03 11:57:04,081 INFO ========================================
+2026-08-03 11:58:06,942 INFO Iniciando sincronización
+2026-08-03 11:58:25,338 INFO Sincronización completada: insertados=1, actualizados=23, omitidos=1660
+2026-08-03 11:58:25,339 INFO Tabla MySQL: VW_WinORdeTraba
+2026-08-03 11:58:25,340 INFO ========================================
+2026-08-03 11:58:25,340 INFO Sincronización visual: 1684 filas procesadas
+2026-08-03 11:58:25,340 INFO Insertadas: 1
+2026-08-03 11:58:25,340 INFO Actualizadas: 23
+2026-08-03 11:58:25,340 INFO Omitidas: 1660
+2026-08-03 11:58:25,341 INFO Total de cambios: 24
+2026-08-03 11:58:25,341 INFO ========================================
+2026-08-03 11:59:29,426 INFO Iniciando sincronización
+2026-08-03 11:59:59,128 INFO Sincronización completada: insertados=8, actualizados=28, omitidos=1656
+2026-08-03 11:59:59,128 INFO Tabla MySQL: VW_WinORdeTraba
+2026-08-03 11:59:59,128 INFO ========================================
+2026-08-03 11:59:59,129 INFO Sincronización visual: 1692 filas procesadas
+2026-08-03 11:59:59,129 INFO Insertadas: 8
+2026-08-03 11:59:59,129 INFO Actualizadas: 28
+2026-08-03 11:59:59,129 INFO Omitidas: 1656
+2026-08-03 11:59:59,129 INFO Total de cambios: 36
+2026-08-03 11:59:59,130 INFO ========================================
+2026-08-03 12:01:03,299 INFO Iniciando sincronización
+2026-08-03 12:01:29,156 INFO Sincronización completada: insertados=3, actualizados=36, omitidos=1656
+2026-08-03 12:01:29,156 INFO Tabla MySQL: VW_WinORdeTraba
+2026-08-03 12:01:29,157 INFO ========================================
+2026-08-03 12:01:29,157 INFO Sincronización visual: 1695 filas procesadas
+2026-08-03 12:01:29,157 INFO Insertadas: 3
+2026-08-03 12:01:29,157 INFO Actualizadas: 36
+2026-08-03 12:01:29,158 INFO Omitidas: 1656
+2026-08-03 12:01:29,158 INFO Total de cambios: 39
+2026-08-03 12:01:29,158 INFO ========================================
+2026-08-03 12:02:33,014 INFO Iniciando sincronización
+2026-08-03 12:02:54,868 INFO Sincronización completada: insertados=1, actualizados=27, omitidos=1668
+2026-08-03 12:02:54,868 INFO Tabla MySQL: VW_WinORdeTraba
+2026-08-03 12:02:54,869 INFO ========================================
+2026-08-03 12:02:54,869 INFO Sincronización visual: 1696 filas procesadas
+2026-08-03 12:02:54,869 INFO Insertadas: 1
+2026-08-03 12:02:54,870 INFO Actualizadas: 27
+2026-08-03 12:02:54,870 INFO Omitidas: 1668
+2026-08-03 12:02:54,870 INFO Total de cambios: 28
+2026-08-03 12:02:54,870 INFO ========================================
+2026-08-03 12:03:57,893 INFO Iniciando sincronización
+2026-08-03 12:04:17,556 INFO Sincronización completada: insertados=2, actualizados=22, omitidos=1674
+2026-08-03 12:04:17,557 INFO Tabla MySQL: VW_WinORdeTraba
+2026-08-03 12:04:17,558 INFO ========================================
+2026-08-03 12:04:17,558 INFO Sincronización visual: 1698 filas procesadas
+2026-08-03 12:04:17,559 INFO Insertadas: 2
+2026-08-03 12:04:17,559 INFO Actualizadas: 22
+2026-08-03 12:04:17,560 INFO Omitidas: 1674
+2026-08-03 12:04:17,560 INFO Total de cambios: 24
+2026-08-03 12:04:17,561 INFO ========================================
+2026-08-03 12:05:21,332 INFO Iniciando sincronización
+2026-08-03 12:05:51,698 INFO Sincronización completada: insertados=22, actualizados=28, omitidos=1670
+2026-08-03 12:05:51,698 INFO Tabla MySQL: VW_WinORdeTraba
+2026-08-03 12:05:51,699 INFO ========================================
+2026-08-03 12:05:51,699 INFO Sincronización visual: 1720 filas procesadas
+2026-08-03 12:05:51,700 INFO Insertadas: 22
+2026-08-03 12:05:51,700 INFO Actualizadas: 28
+2026-08-03 12:05:51,700 INFO Omitidas: 1670
+2026-08-03 12:05:51,700 INFO Total de cambios: 50
+2026-08-03 12:05:51,700 INFO ========================================
+2026-08-03 12:06:55,138 INFO Iniciando sincronización
+2026-08-03 12:07:17,068 INFO Sincronización completada: insertados=2, actualizados=29, omitidos=1691
+2026-08-03 12:07:17,068 INFO Tabla MySQL: VW_WinORdeTraba
+2026-08-03 12:07:17,069 INFO ========================================
+2026-08-03 12:07:17,069 INFO Sincronización visual: 1722 filas procesadas
+2026-08-03 12:07:17,069 INFO Insertadas: 2
+2026-08-03 12:07:17,069 INFO Actualizadas: 29
+2026-08-03 12:07:17,070 INFO Omitidas: 1691
+2026-08-03 12:07:17,070 INFO Total de cambios: 31
+2026-08-03 12:07:17,070 INFO ========================================
+2026-08-03 12:08:21,285 INFO Iniciando sincronización
+2026-08-03 12:08:48,662 INFO Sincronización completada: insertados=3, actualizados=41, omitidos=1681
+2026-08-03 12:08:48,663 INFO Tabla MySQL: VW_WinORdeTraba
+2026-08-03 12:08:48,663 INFO ========================================
+2026-08-03 12:08:48,664 INFO Sincronización visual: 1725 filas procesadas
+2026-08-03 12:08:48,664 INFO Insertadas: 3
+2026-08-03 12:08:48,665 INFO Actualizadas: 41
+2026-08-03 12:08:48,665 INFO Omitidas: 1681
+2026-08-03 12:08:48,665 INFO Total de cambios: 44
+2026-08-03 12:08:48,666 INFO ========================================
+2026-08-03 12:09:56,228 INFO Iniciando sincronización
+2026-08-03 12:10:23,476 INFO Sincronización completada: insertados=0, actualizados=38, omitidos=1687
+2026-08-03 12:10:23,476 INFO Tabla MySQL: VW_WinORdeTraba
+2026-08-03 12:10:23,476 INFO ========================================
+2026-08-03 12:10:23,476 INFO Sincronización visual: 1725 filas procesadas
+2026-08-03 12:10:23,477 INFO Insertadas: 0
+2026-08-03 12:10:23,477 INFO Actualizadas: 38
+2026-08-03 12:10:23,477 INFO Omitidas: 1687
+2026-08-03 12:10:23,477 INFO Total de cambios: 38
+2026-08-03 12:10:23,478 INFO ========================================
+2026-08-03 12:13:24,072 INFO Iniciando sincronización
+2026-08-03 12:13:59,841 INFO Sincronización completada: insertados=37, actualizados=46, omitidos=1679
+2026-08-03 12:13:59,844 INFO Tabla MySQL: VW_WinORdeTraba
+2026-08-03 12:13:59,845 INFO ========================================
+2026-08-03 12:13:59,845 INFO Sincronización visual: 1762 filas procesadas
+2026-08-03 12:13:59,846 INFO Insertadas: 37
+2026-08-03 12:13:59,847 INFO Actualizadas: 46
+2026-08-03 12:13:59,847 INFO Omitidas: 1679
+2026-08-03 12:13:59,849 INFO Total de cambios: 83
+2026-08-03 12:13:59,850 INFO ========================================
