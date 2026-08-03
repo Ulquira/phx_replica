@@ -49,6 +49,7 @@ jobs:
             --resource-group ${{ env.RESOURCE_GROUP }} \
             --environment ${{ env.ENV_NAME }} \
             --image ${{ env.IMAGE_NAME }} \
+            --registry-server ${{ env.ACR_NAME }}.azurecr.io \
             --ingress "internal" \
             --cpu 0.5 --memory 1.0Gi \
             --min-replicas 1 --max-replicas 1 \
