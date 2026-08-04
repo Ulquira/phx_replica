@@ -160,8 +160,8 @@ def ensure_mysql_table(mysql_conn, columns):
             column_defs.insert(0, f"{quote_ident('OrdenId')} INT NOT NULL PRIMARY KEY")
 
         # Agregar las columnas token y link por defecto al crear la tabla
-        column_defs.append(f"{quote_ident('token')} LONGTEXT")
-        column_defs.append(f"{quote_ident('link')} LONGTEXT")
+        column_defs.append(f"{quote_ident('token')} VARCHAR(255)")
+        column_defs.append(f"{quote_ident('link')} VARCHAR(255)")
 
         create_sql = f"CREATE TABLE {quote_ident(table_name)} ({', '.join(column_defs)})"
         cursor.execute(create_sql)
@@ -169,11 +169,11 @@ def ensure_mysql_table(mysql_conn, columns):
         # Si la tabla ya existe, nos aseguramos de que tenga las columnas token y link
         cursor.execute(f"SHOW COLUMNS FROM {quote_ident(table_name)} LIKE 'token'")
         if not cursor.fetchone():
-            cursor.execute(f"ALTER TABLE {quote_ident(table_name)} ADD COLUMN {quote_ident('token')} LONGTEXT")
+            cursor.execute(f"ALTER TABLE {quote_ident(table_name)} ADD COLUMN {quote_ident('token')} VARCHAR(255)")
             
         cursor.execute(f"SHOW COLUMNS FROM {quote_ident(table_name)} LIKE 'link'")
         if not cursor.fetchone():
-            cursor.execute(f"ALTER TABLE {quote_ident(table_name)} ADD COLUMN {quote_ident('link')} LONGTEXT")
+            cursor.execute(f"ALTER TABLE {quote_ident(table_name)} ADD COLUMN {quote_ident('link')} VARCHAR(255)")
 
     return table_name
 
