@@ -196,13 +196,14 @@ def sync_rows():
 
 
 def insert_row(mysql_conn, table_name: str, columns: List[Dict[str, object]], key_col: str, key_value: str, row: Dict[str, object]):
-    safe_cols = [re.sub(r"[^0-9A-Za-z_]+", "_", c["name"]).strip("_") or "column" for c in columns]
+    filtered_columns = [c for c in columns if c["name"].lower() not in ["link", "token", "cuadrilla_nombre"]]
+    safe_cols = [re.sub(r"[^0-9A-Za-z_]+", "_", c["name"]).strip("_") or "column" for c in filtered_columns]
     if key_col == "__row_key":
         safe_cols = ["__row_key"] + safe_cols
-        values = [key_value] + [row.get(c["name"]) for c in columns]
+        values = [key_value] + [row.get(c["name"]) for c in filtered_columns]
     else:
         safe_cols = [key_col] + safe_cols
-        values = [key_value] + [row.get(c["name"]) for c in columns]
+        values = [key_value] + [row.get(c["name"]) for c in filtered_columns]
     placeholders = ", ".join(["%s"] * len(safe_cols))
     columns_sql = ", ".join([quote_ident(col) for col in safe_cols])
     cursor = mysql_conn.cursor()
@@ -210,13 +211,14 @@ def insert_row(mysql_conn, table_name: str, columns: List[Dict[str, object]], ke
 
 
 def update_row(mysql_conn, table_name: str, columns: List[Dict[str, object]], key_col: str, key_value: str, row: Dict[str, object]):
-    safe_cols = [re.sub(r"[^0-9A-Za-z_]+", "_", c["name"]).strip("_") or "column" for c in columns]
+    filtered_columns = [c for c in columns if c["name"].lower() not in ["link", "token", "cuadrilla_nombre"]]
+    safe_cols = [re.sub(r"[^0-9A-Za-z_]+", "_", c["name"]).strip("_") or "column" for c in filtered_columns]
     if key_col == "__row_key":
         safe_cols = ["__row_key"] + safe_cols
-        values = [key_value] + [row.get(c["name"]) for c in columns]
+        values = [key_value] + [row.get(c["name"]) for c in filtered_columns]
     else:
         safe_cols = [key_col] + safe_cols
-        values = [key_value] + [row.get(c["name"]) for c in columns]
+        values = [key_value] + [row.get(c["name"]) for c in filtered_columns]
     assignments = ", ".join([f"{quote_ident(col)} = %s" for col in safe_cols[1:]])
     cursor = mysql_conn.cursor()
     cursor.execute(
