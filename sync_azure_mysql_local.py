@@ -96,10 +96,13 @@ def get_source_columns(conn):
         WHERE TABLE_SCHEMA = 'dbo' AND TABLE_NAME = 'VW_WinOrdeTraba'
         ORDER BY ORDINAL_POSITION
     """)
-    return [
+    columns = [
         {"name": row[0], "type": row[1]}
         for row in cursor.fetchall()
     ]
+    # Agregamos la columna calculada de georeferencia
+    columns.append({"name": "Georeferencia_tecnico", "type": "varchar"})
+    return columns
 
 
 def pick_date_column(columns):
@@ -112,22 +115,35 @@ def pick_date_column(columns):
 
 def fetch_source_rows(conn, columns):
     date_column = pick_date_column(columns)
+    
+    base_query = """
+        SELECT t.*, 
+               CAST(p.Latitud AS VARCHAR(50)) + ',' + CAST(p.Longitud AS VARCHAR(50)) AS Georeferencia_tecnico
+        FROM [dbo].[VW_WinOrdeTraba] t
+        LEFT JOIN [dbo].[Cuadrillas] c ON t.Cuadrilla = c.Nombre
+        LEFT JOIN [dbo].[VW_UltiTecniHistoPosi] p ON c.Cuadrillaid = p.Tecnicoid
+    """
+    
     if date_column:
-        query = f"SELECT * FROM [dbo].[VW_WinOrdeTraba] WHERE CAST([{date_column}] AS date) = CAST(GETDATE() AS date)"
+        query = f"{base_query} WHERE CAST(t.[{date_column}] AS date) = CAST(GETDATE() AS date)"
     else:
-        query = "SELECT * FROM [dbo].[VW_WinOrdeTraba]"
+        query = base_query
 
     cursor = conn.cursor()
     cursor.execute(query)
     rows = []
+    
+    # Extraemos los nombres reales de las columnas que devuelve la consulta
+    query_columns = [col[0] for col in cursor.description]
+    
     for raw in cursor.fetchall():
         row = {}
-        for idx, col in enumerate(columns):
+        for idx, col_name in enumerate(query_columns):
             value = raw[idx]
             if isinstance(value, datetime):
-                row[col["name"]] = value.isoformat(timespec="seconds")
+                row[col_name] = value.isoformat(timespec="seconds")
             else:
-                row[col["name"]] = value
+                row[col_name] = value
         rows.append(row)
     return rows
 
@@ -174,6 +190,10 @@ def ensure_mysql_table(mysql_conn, columns):
         cursor.execute(f"SHOW COLUMNS FROM {quote_ident(table_name)} LIKE 'link'")
         if not cursor.fetchone():
             cursor.execute(f"ALTER TABLE {quote_ident(table_name)} ADD COLUMN {quote_ident('link')} VARCHAR(255)")
+            
+        cursor.execute(f"SHOW COLUMNS FROM {quote_ident(table_name)} LIKE 'Georeferencia_tecnico'")
+        if not cursor.fetchone():
+            cursor.execute(f"ALTER TABLE {quote_ident(table_name)} ADD COLUMN {quote_ident('Georeferencia_tecnico')} TEXT")
 
     return table_name
 
@@ -282,7 +302,7 @@ def detect_state_column(columns):
 def upsert_row(mysql_conn, table_name, columns, row, state_column, target_columns):
     mapped_columns = []
     for col in columns:
-        if col["name"].lower() in ["link", "token"]:
+        if col["name"].lower() in ["link", "token", "georeferencia_tecnico"]:
             continue
         target_name = resolve_target_column(target_columns, col["name"])
         if target_name is None:
