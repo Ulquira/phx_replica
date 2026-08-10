@@ -282,7 +282,7 @@ def detect_state_column(columns):
 def upsert_row(mysql_conn, table_name, columns, row, state_column, target_columns):
     mapped_columns = []
     for col in columns:
-        if col["name"].lower() in ["link", "token", "cuadrilla_nombre"]:
+        if col["name"].lower() in ["link", "token"]:
             continue
         target_name = resolve_target_column(target_columns, col["name"])
         if target_name is None:
