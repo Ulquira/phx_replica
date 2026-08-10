@@ -125,7 +125,7 @@ def fetch_source_rows(conn, columns):
                END AS Georeferencia_tecnico
         FROM [dbo].[VW_WinOrdeTraba] t
         LEFT JOIN [dbo].[Cuadrillas] c ON t.Cuadrilla = c.Nombre
-        LEFT JOIN [dbo].[VW_UltiTecniHistoPosi] p ON c.Cuadrillaid = p.TecniId
+        LEFT JOIN [dbo].[VW_CuadriUltiPosi] p ON c.CuadriId = p.CuadrillaId
     """
     
     if date_column:
