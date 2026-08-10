@@ -35,7 +35,7 @@ MYSQL_PORT = int(os.getenv("MYSQL_PORT", "3306"))
 MYSQL_DATABASE = os.getenv("MYSQL_DATABASE")
 MYSQL_USER = os.getenv("MYSQL_USER")
 MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD")
-MYSQL_TABLE = os.getenv("MYSQL_TABLE", "vw_winordetraba_mirror")
+MYSQL_TABLE = os.getenv("MYSQL_TABLE", "vw_winordetraba")
 
 
 def quote_ident(name: str) -> str:
@@ -118,7 +118,11 @@ def fetch_source_rows(conn, columns):
     
     base_query = """
         SELECT t.*, 
-               CAST(p.Latitud AS VARCHAR(50)) + ',' + CAST(p.Longitud AS VARCHAR(50)) AS Georeferencia_tecnico
+               CASE 
+                   WHEN t.Estado = 'En camino' 
+                   THEN CAST(p.Latitud AS VARCHAR(50)) + ',' + CAST(p.Longitud AS VARCHAR(50)) 
+                   ELSE NULL 
+               END AS Georeferencia_tecnico
         FROM [dbo].[VW_WinOrdeTraba] t
         LEFT JOIN [dbo].[Cuadrillas] c ON t.Cuadrilla = c.Nombre
         LEFT JOIN [dbo].[VW_UltiTecniHistoPosi] p ON c.Cuadrillaid = p.Tecnicoid
@@ -332,7 +336,12 @@ def upsert_row(mysql_conn, table_name, columns, row, state_column, target_column
         return False
 
     placeholders = ", ".join(["%s"] * len(sql_columns))
-    update_clause = ", ".join([f"{quote_ident(target_name)} = VALUES({quote_ident(target_name)})" for _, target_name in insert_columns])
+    update_clause = ", ".join([
+        f"{quote_ident(target_name)} = VALUES({quote_ident(target_name)})" 
+        if target_name.lower() != "georeferencia_tecnico" 
+        else f"{quote_ident(target_name)} = COALESCE(VALUES({quote_ident(target_name)}), {quote_ident(target_name)})"
+        for _, target_name in insert_columns
+    ])
     insert_sql = f"INSERT INTO {quote_ident(table_name)} ({', '.join(sql_columns)}) VALUES ({placeholders}) ON DUPLICATE KEY UPDATE {update_clause}"
     cursor = mysql_conn.cursor()
     cursor.execute(insert_sql, sql_values)
