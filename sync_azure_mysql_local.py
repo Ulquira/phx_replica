@@ -199,6 +199,19 @@ def ensure_mysql_table(mysql_conn, columns):
         if not cursor.fetchone():
             cursor.execute(f"ALTER TABLE {quote_ident(table_name)} ADD COLUMN {quote_ident('Georeferencia_tecnico')} TEXT")
 
+        # Crear índices para optimizar consultas de actualización y lectura (Covering Index)
+        estado_col = next((c["name"] for c in columns if c["name"].lower() == "estado"), None)
+        if estado_col:
+            cursor.execute(f"SHOW INDEX FROM {quote_ident(table_name)} WHERE Key_name = 'idx_estado'")
+            if not cursor.fetchone():
+                cursor.execute(f"ALTER TABLE {quote_ident(table_name)} ADD INDEX idx_estado ({quote_ident(estado_col)})")
+                
+        fecha_col = pick_date_column(columns)
+        if fecha_col:
+            cursor.execute(f"SHOW INDEX FROM {quote_ident(table_name)} WHERE Key_name = 'idx_fecha'")
+            if not cursor.fetchone():
+                cursor.execute(f"ALTER TABLE {quote_ident(table_name)} ADD INDEX idx_fecha ({quote_ident(fecha_col)})")
+
     return table_name
 
 
@@ -232,6 +245,13 @@ def ensure_control_table(mysql_conn):
         )
         """
     )
+    cursor.execute("SHOW INDEX FROM sync_runs WHERE Key_name = 'idx_started_at'")
+    if not cursor.fetchone():
+        cursor.execute("ALTER TABLE sync_runs ADD INDEX idx_started_at (started_at)")
+    
+    cursor.execute("SHOW INDEX FROM sync_runs WHERE Key_name = 'idx_status'")
+    if not cursor.fetchone():
+        cursor.execute("ALTER TABLE sync_runs ADD INDEX idx_status (status)")
 
 
 def record_run(mysql_conn, started_at, finished_at, status, rows_processed, inserted, updated, skipped, message, error):
