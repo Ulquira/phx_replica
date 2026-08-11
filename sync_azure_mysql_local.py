@@ -129,26 +129,26 @@ def fetch_source_rows(conn, columns):
     """
     
     if date_column:
-        query = f"{base_query} WHERE CAST(t.[{date_column}] AS date) = CAST(GETDATE() AS date)"
+        query = f"{base_query} WHERE t.[{date_column}] >= CAST(GETDATE() AS date) AND t.[{date_column}] < DATEADD(day, 1, CAST(GETDATE() AS date))"
     else:
         query = base_query
 
-    cursor = conn.cursor()
-    cursor.execute(query)
-    rows = []
-    
-    # Extraemos los nombres reales de las columnas que devuelve la consulta
-    query_columns = [col[0] for col in cursor.description]
-    
-    for raw in cursor.fetchall():
-        row = {}
-        for idx, col_name in enumerate(query_columns):
-            value = raw[idx]
-            if isinstance(value, datetime):
-                row[col_name] = value.isoformat(timespec="seconds")
-            else:
-                row[col_name] = value
-        rows.append(row)
+    with conn.cursor() as cursor:
+        cursor.execute(query)
+        rows = []
+        
+        # Extraemos los nombres reales de las columnas que devuelve la consulta
+        query_columns = [col[0] for col in cursor.description]
+        
+        for raw in cursor.fetchall():
+            row = {}
+            for idx, col_name in enumerate(query_columns):
+                value = raw[idx]
+                if isinstance(value, datetime):
+                    row[col_name] = value.isoformat(timespec="seconds")
+                else:
+                    row[col_name] = value
+            rows.append(row)
     return rows
 
 
@@ -202,11 +202,16 @@ def ensure_mysql_table(mysql_conn, columns):
     return table_name
 
 
-def load_existing_rows(mysql_conn, table_name):
-    cursor = mysql_conn.cursor(dictionary=True)
-    cursor.execute(f"SELECT * FROM {quote_ident(table_name)}")
-    rows = cursor.fetchall()
-    return {str(row.get('OrdenId', '')): row for row in rows if row.get('OrdenId') is not None}
+def load_existing_rows(mysql_conn, table_name, state_column=None):
+    with mysql_conn.cursor(dictionary=True) as cursor:
+        if state_column:
+            safe_state = safe_name(state_column)
+            cursor.execute(f"SELECT OrdenId, {quote_ident(safe_state)} FROM {quote_ident(table_name)}")
+            rows = cursor.fetchall()
+            return {str(row.get('OrdenId', '')): row for row in rows if row.get('OrdenId') is not None}
+        cursor.execute(f"SELECT OrdenId FROM {quote_ident(table_name)}")
+        rows = cursor.fetchall()
+        return {str(row.get('OrdenId', '')): {} for row in rows if row.get('OrdenId') is not None}
 
 
 def ensure_control_table(mysql_conn):
@@ -303,49 +308,35 @@ def detect_state_column(columns):
     return None
 
 
-def upsert_row(mysql_conn, table_name, columns, row, state_column, target_columns):
+def upsert_rows_batch(mysql_conn, table_name, columns, rows_to_upsert, target_columns):
     mapped_columns = []
     for col in columns:
-        if col["name"].lower() in ["link", "token"]:
-            continue
+        if col["name"].lower() in ["link", "token"]: continue
         target_name = resolve_target_column(target_columns, col["name"])
-        if target_name is None:
-            continue
-        mapped_columns.append((col["name"], target_name))
+        if target_name: mapped_columns.append((col["name"], target_name))
 
-    if not mapped_columns:
-        return False
+    if not mapped_columns or "ordenid" not in {t.lower() for s, t in mapped_columns}: return
 
-    insert_columns = []
-    for source_name, target_name in mapped_columns:
-        if target_name.lower() == "ordenid":
-            key_value = row.get(source_name)
-            continue
-        insert_columns.append((source_name, target_name))
+    ordenid_mapping = next(m for m in mapped_columns if m[1].lower() == "ordenid")
+    other_mappings = [m for m in mapped_columns if m[1].lower() != "ordenid"]
+    final_mappings = [ordenid_mapping] + other_mappings
+    target_names = [t for s, t in final_mappings]
 
-    if "ordenid" not in {target_name.lower() for _, target_name in mapped_columns}:
-        return False
+    batch_data = [tuple(row.get(s) for s, t in final_mappings) for row in rows_to_upsert]
 
-    sql_columns = [quote_ident("OrdenId")]
-    sql_values = [key_value]
-    for source_name, target_name in insert_columns:
-        sql_columns.append(quote_ident(target_name))
-        sql_values.append(row.get(source_name))
-
-    if len(sql_columns) == 1:
-        return False
-
-    placeholders = ", ".join(["%s"] * len(sql_columns))
+    placeholders = ", ".join(["%s"] * len(target_names))
     update_clause = ", ".join([
-        f"{quote_ident(target_name)} = VALUES({quote_ident(target_name)})" 
-        if target_name.lower() != "georeferencia_tecnico" 
-        else f"{quote_ident(target_name)} = COALESCE(VALUES({quote_ident(target_name)}), {quote_ident(target_name)})"
-        for _, target_name in insert_columns
+        f"{quote_ident(t)} = VALUES({quote_ident(t)})" 
+        if t.lower() != "georeferencia_tecnico" 
+        else f"{quote_ident(t)} = COALESCE(VALUES({quote_ident(t)}), {quote_ident(t)})"
+        for t in target_names if t.lower() != "ordenid"
     ])
-    insert_sql = f"INSERT INTO {quote_ident(table_name)} ({', '.join(sql_columns)}) VALUES ({placeholders}) ON DUPLICATE KEY UPDATE {update_clause}"
-    cursor = mysql_conn.cursor()
-    cursor.execute(insert_sql, sql_values)
-    return True
+    insert_sql = f"INSERT INTO {quote_ident(table_name)} ({', '.join(quote_ident(c) for c in target_names)}) VALUES ({placeholders}) ON DUPLICATE KEY UPDATE {update_clause}"
+    
+    with mysql_conn.cursor() as cursor:
+        chunk_size = 500
+        for i in range(0, len(batch_data), chunk_size):
+            cursor.executemany(insert_sql, batch_data[i:i + chunk_size])
 
 
 def sync_once():
@@ -372,21 +363,25 @@ def sync_once():
         rows_processed = len(rows)
         table_name = ensure_mysql_table(mysql_conn, columns)
         target_columns = get_target_columns(mysql_conn, safe_name(MYSQL_TABLE))
-        existing_rows = load_existing_rows(mysql_conn, table_name)
         state_column = detect_state_column(columns)
+        existing_rows = load_existing_rows(mysql_conn, table_name, state_column)
 
+        rows_to_upsert = []
         for row in rows:
             order_id = row.get('OrdenId')
             existing = existing_rows.get(str(order_id)) if order_id is not None else None
 
             if existing is None:
-                upsert_row(mysql_conn, table_name, columns, row, state_column, target_columns)
+                rows_to_upsert.append(row)
                 inserted += 1
             elif state_column and existing.get(safe_name(state_column)) != row.get(state_column):
-                upsert_row(mysql_conn, table_name, columns, row, state_column, target_columns)
+                rows_to_upsert.append(row)
                 updated += 1
             else:
                 skipped += 1
+                
+        if rows_to_upsert:
+            upsert_rows_batch(mysql_conn, table_name, columns, rows_to_upsert, target_columns)
 
         logger.info("Sincronización completada: insertados=%s, actualizados=%s, omitidos=%s", inserted, updated, skipped)
         logger.info("Tabla MySQL: %s", table_name)
