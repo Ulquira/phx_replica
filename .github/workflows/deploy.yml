@@ -33,7 +33,13 @@ jobs:
           # Intentamos crear el ACR, pero si ya existe en otra región o grupo, fallará. 
           # Lo ignoramos porque ya existe el registro "phxwinacr" y vamos a reutilizarlo.
           az acr create --resource-group ${{ env.RESOURCE_GROUP }} --name ${{ env.ACR_NAME }} --sku Basic --admin-enabled true || true
-          az containerapp env create --name ${{ env.ENV_NAME }} --resource-group ${{ env.RESOURCE_GROUP }} --location ${{ env.LOCATION }}
+          
+          # Evitar error "ManagedEnvironmentOperationInProgress" comprobando si ya existe
+          if ! az containerapp env show --name ${{ env.ENV_NAME }} --resource-group ${{ env.RESOURCE_GROUP }} &>/dev/null; then
+            az containerapp env create --name ${{ env.ENV_NAME }} --resource-group ${{ env.RESOURCE_GROUP }} --location ${{ env.LOCATION }}
+          else
+            echo "El entorno ${{ env.ENV_NAME }} ya existe. Omitiendo creación."
+          fi
 
       - name: Iniciar sesión en ACR
         run: |
