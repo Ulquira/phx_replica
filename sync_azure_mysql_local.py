@@ -204,7 +204,8 @@ def ensure_mysql_table(mysql_conn, columns):
         if estado_col:
             cursor.execute(f"SHOW INDEX FROM {quote_ident(table_name)} WHERE Key_name = 'idx_estado'")
             if not cursor.fetchone():
-                cursor.execute(f"ALTER TABLE {quote_ident(table_name)} ADD INDEX idx_estado ({quote_ident(estado_col)})")
+                # Se limita la longitud del índice a 255 caracteres para evitar el error BLOB/TEXT sin longitud
+                cursor.execute(f"ALTER TABLE {quote_ident(table_name)} ADD INDEX idx_estado ({quote_ident(estado_col)}(255))")
                 
         fecha_col = pick_date_column(columns)
         if fecha_col:
