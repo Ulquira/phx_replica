@@ -13,7 +13,7 @@ env:
   ACR_NAME: "phxwinacr"
   ENV_NAME: "phx-win-env"
   APP_NAME: "phx-win-sync"
-  IMAGE_NAME: "phxwinacr.azurecr.io/api-phx-sync:latest"
+  IMAGE_NAME: "phxwinacr.azurecr.io/api-phx-sync:${{ github.sha }}"
 
 jobs:
   build-and-deploy:
@@ -47,28 +47,49 @@ jobs:
 
       - name: Construir y subir imagen Docker
         run: |
-          docker build -t ${{ env.IMAGE_NAME }} .
+          docker build -t ${{ env.IMAGE_NAME }} -t phxwinacr.azurecr.io/api-phx-sync:latest .
           docker push ${{ env.IMAGE_NAME }}
+          docker push phxwinacr.azurecr.io/api-phx-sync:latest
 
       - name: Desplegar en Container Apps
         run: |
-          az containerapp create \
-            --name ${{ env.APP_NAME }} \
-            --resource-group ${{ env.RESOURCE_GROUP }} \
-            --environment ${{ env.ENV_NAME }} \
-            --image ${{ env.IMAGE_NAME }} \
-            --registry-server ${{ env.ACR_NAME }}.azurecr.io \
-            --ingress "internal" \
-            --cpu 0.5 --memory 1.0Gi \
-            --min-replicas 1 --max-replicas 1 \
-            --env-vars "PYTHONUNBUFFERED=1" "SYNC_INTERVAL=60" \
-            "AZURE_SERVER=${{ secrets.AZURE_SERVER }}" \
-            "AZURE_DATABASE=${{ secrets.AZURE_DATABASE }}" \
-            "AZURE_USER=${{ secrets.AZURE_USER }}" \
-            "AZURE_PASSWORD=${{ secrets.AZURE_PASSWORD }}" \
-            "MYSQL_HOST=${{ secrets.MYSQL_HOST }}" \
-            "MYSQL_PORT=${{ secrets.MYSQL_PORT }}" \
-            "MYSQL_DATABASE=${{ secrets.MYSQL_DATABASE }}" \
-            "MYSQL_USER=${{ secrets.MYSQL_USER }}" \
-            "MYSQL_PASSWORD=${{ secrets.MYSQL_PASSWORD }}" \
-            "MYSQL_TABLE=${{ secrets.MYSQL_TABLE }}"
+          if az containerapp show --name ${{ env.APP_NAME }} --resource-group ${{ env.RESOURCE_GROUP }} &>/dev/null; then
+            echo "La aplicación ya existe. Actualizando a la nueva imagen..."
+            az containerapp update \
+              --name ${{ env.APP_NAME }} \
+              --resource-group ${{ env.RESOURCE_GROUP }} \
+              --image ${{ env.IMAGE_NAME }} \
+              --set-env-vars "PYTHONUNBUFFERED=1" "SYNC_INTERVAL=60" \
+              "AZURE_SERVER=${{ secrets.AZURE_SERVER }}" \
+              "AZURE_DATABASE=${{ secrets.AZURE_DATABASE }}" \
+              "AZURE_USER=${{ secrets.AZURE_USER }}" \
+              "AZURE_PASSWORD=${{ secrets.AZURE_PASSWORD }}" \
+              "MYSQL_HOST=${{ secrets.MYSQL_HOST }}" \
+              "MYSQL_PORT=${{ secrets.MYSQL_PORT }}" \
+              "MYSQL_DATABASE=${{ secrets.MYSQL_DATABASE }}" \
+              "MYSQL_USER=${{ secrets.MYSQL_USER }}" \
+              "MYSQL_PASSWORD=${{ secrets.MYSQL_PASSWORD }}" \
+              "MYSQL_TABLE=${{ secrets.MYSQL_TABLE }}"
+          else
+            echo "Creando nueva aplicación..."
+            az containerapp create \
+              --name ${{ env.APP_NAME }} \
+              --resource-group ${{ env.RESOURCE_GROUP }} \
+              --environment ${{ env.ENV_NAME }} \
+              --image ${{ env.IMAGE_NAME }} \
+              --registry-server ${{ env.ACR_NAME }}.azurecr.io \
+              --ingress "internal" \
+              --cpu 0.5 --memory 1.0Gi \
+              --min-replicas 1 --max-replicas 1 \
+              --env-vars "PYTHONUNBUFFERED=1" "SYNC_INTERVAL=60" \
+              "AZURE_SERVER=${{ secrets.AZURE_SERVER }}" \
+              "AZURE_DATABASE=${{ secrets.AZURE_DATABASE }}" \
+              "AZURE_USER=${{ secrets.AZURE_USER }}" \
+              "AZURE_PASSWORD=${{ secrets.AZURE_PASSWORD }}" \
+              "MYSQL_HOST=${{ secrets.MYSQL_HOST }}" \
+              "MYSQL_PORT=${{ secrets.MYSQL_PORT }}" \
+              "MYSQL_DATABASE=${{ secrets.MYSQL_DATABASE }}" \
+              "MYSQL_USER=${{ secrets.MYSQL_USER }}" \
+              "MYSQL_PASSWORD=${{ secrets.MYSQL_PASSWORD }}" \
+              "MYSQL_TABLE=${{ secrets.MYSQL_TABLE }}"
+          fi
