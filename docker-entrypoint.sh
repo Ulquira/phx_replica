@@ -7,6 +7,9 @@ if [ -z "$SYNC_INTERVAL" ]; then
   SYNC_INTERVAL=60
 fi
 
+echo "==== INICIANDO SINCRONIZACION DE CATALOGOS ===="
+python -u sync_catalogs.py || echo "Advertencia: Fallo en catálogos, pero continuando..."
+
 while true; do
   echo "==== SYNC START: $(date -u +'%Y-%m-%dT%H:%M:%SZ') ===="
   python -u app.py
