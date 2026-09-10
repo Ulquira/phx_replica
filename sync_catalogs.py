@@ -65,6 +65,8 @@ def map_sql_type(sql_type: str) -> str:
         return "TINYINT"
     if "datetime" in t or "date" in t or "time" in t:
         return "DATETIME"
+    if "image" in t or "varbinary" in t or "binary" in t:
+        return "LONGBLOB"
     return "LONGTEXT"
 
 def get_table_schema(conn, table_name):
