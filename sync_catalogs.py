@@ -152,7 +152,8 @@ def create_mysql_view(mysql_conn):
         c.Nombre as Cuadrilla,
         p.RazonSocial as Partner,
         u.NumeMovil as Telefono,
-        u.NumeDocuIden as Documento
+        u.NumeDocuIden as Documento,
+        u.foto
     FROM Usuarios u
     INNER JOIN tecnicos t ON t.codiusua = u.codiusua
     INNER JOIN cuadrillas c ON t.cuadriid = c.cuadriid
