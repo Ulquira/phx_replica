@@ -1,4 +1,5 @@
 import os
+import re
 import base64
 import logging
 from datetime import datetime
@@ -38,6 +39,28 @@ INNER JOIN cuadrillas c ON t.cuadriid = c.cuadriid
 INNER JOIN EmpreTerce p ON p.EmpreTerceId = c.EmpreTerceId
 INNER JOIN Empresas e ON c.EmpresaId = e.EmpresaId
 """
+
+def clean_cuadrilla_name(raw: str) -> str:
+    if not raw:
+        return ""
+    text = raw.strip()
+    
+    # 1. Remover prefijos comunes tipo: "D 1 BIO SGI ", "D 10 KAJOMI SGA ", "D 1 TRASLADO LARI ", "BAJA FR ", etc.
+    prefix_pattern = r'^(?:BAJA\s+FR|BAJA|ALTA|D\s*\d+)\s+(?:(?:TRASLADO|REPARACION|INSTALACION)\s+)?(?:BIO|DIGETEL|KAJOMI|SGM|SGI|SGA|TLI|LARI|VISUAL|DATANTENNA|SISCARD|MALLAUSA|COBRA|EZENTIS|GLOBAL|WIN)\s*(?:SGI|SGA|SGM)?\s*'
+    text = re.sub(prefix_pattern, '', text, flags=re.IGNORECASE)
+    
+    # Remover prefijo si quedó "BAJA FR " o "BAJA " o "ALTA " o "D \d+"
+    text = re.sub(r'^(?:BAJA\s+FR|BAJA|ALTA|D\s*\d+)\s+', '', text, flags=re.IGNORECASE)
+    
+    # 2. Remover sufijos tipo: "K13 KAJOMI", "K3 VISUAL", "K19 CESPEDES", "K\d+ .*"
+    suffix_pattern = r'\s+K\d+\s+.*$'
+    text = re.sub(suffix_pattern, '', text, flags=re.IGNORECASE)
+    
+    # 3. Limpiar siglas aisladas al inicio o final (ej: "SGI ", "SGA ", "SGM ", "K\d+")
+    text = re.sub(r'^(?:SGI|SGA|SGM|K\d+)\s+', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'\s+(?:SGI|SGA|SGM|K\d+)$', '', text, flags=re.IGNORECASE)
+    
+    return text.strip()
 
 def get_azure_connection():
     conn_str = (
@@ -107,42 +130,55 @@ def sync_direct_query():
         cursor_my.execute(f"DROP VIEW IF EXISTS `{TABLE_NAME}`")
         cursor_my.execute(f"DROP TABLE IF EXISTS `{TABLE_NAME}`")
         
-        # Crear la tabla física optimizada en MySQL con la columna Foto_Img (Data URI / Base64)
+        # Crear la tabla física optimizada en MySQL con Nombre_Tecnico_Limpio y Foto_Img (Data URI / Base64)
         create_sql = f"""
         CREATE TABLE `{TABLE_NAME}` (
             `Empresa` VARCHAR(255),
             `Cuadrilla` VARCHAR(255),
+            `Nombre_Tecnico_Limpio` VARCHAR(255),
             `Partner` VARCHAR(255),
             `Telefono` VARCHAR(50),
             `Documento` VARCHAR(50),
             `Foto` LONGBLOB,
             `Foto_Img` LONGTEXT,
             INDEX idx_cuadrilla (`Cuadrilla`),
+            INDEX idx_nombre_limpio (`Nombre_Tecnico_Limpio`),
             INDEX idx_documento (`Documento`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
         """
         cursor_my.execute(create_sql)
-        logger.info(f"Tabla `{TABLE_NAME}` creada en MySQL con índices y columna Foto_Img.")
+        logger.info(f"Tabla `{TABLE_NAME}` creada en MySQL con índices, Nombre_Tecnico_Limpio y Foto_Img.")
         
         if rows:
-            foto_idx = columns.index("Foto") if "Foto" in columns else -1
-            target_cols = list(columns) + ["Foto_Img"]
-            
+            target_cols = ["Empresa", "Cuadrilla", "Nombre_Tecnico_Limpio", "Partner", "Telefono", "Documento", "Foto", "Foto_Img"]
             placeholders = ", ".join(["%s"] * len(target_cols))
             insert_sql = f"INSERT INTO `{TABLE_NAME}` (`{ '`, `'.join(target_cols) }`) VALUES ({placeholders})"
             
             batch_data = []
             for row in rows:
-                foto_val = row[foto_idx] if foto_idx >= 0 else None
+                row_dict = {col: row[i] for i, col in enumerate(columns)}
+                foto_val = row_dict.get("Foto")
+                cuadrilla_val = row_dict.get("Cuadrilla") or ""
+                nombre_limpio = clean_cuadrilla_name(cuadrilla_val)
                 img_data_uri = convert_bytes_to_img_data_uri(foto_val)
-                batch_data.append(tuple(list(row) + [img_data_uri]))
+                
+                batch_data.append((
+                    row_dict.get("Empresa"),
+                    cuadrilla_val,
+                    nombre_limpio,
+                    row_dict.get("Partner"),
+                    row_dict.get("Telefono"),
+                    row_dict.get("Documento"),
+                    foto_val,
+                    img_data_uri
+                ))
             
             chunk_size = 50
             for i in range(0, len(batch_data), chunk_size):
                 cursor_my.executemany(insert_sql, batch_data[i:i + chunk_size])
                 mysql_conn.commit()
                 
-            logger.info(f"¡Éxito! Se insertaron {len(batch_data)} registros en `{TABLE_NAME}` en MySQL con Foto_Img convertida.")
+            logger.info(f"¡Éxito! Se insertaron {len(batch_data)} registros en `{TABLE_NAME}` en MySQL con Nombre_Tecnico_Limpio y Foto_Img.")
             
         cursor_my.close()
         cursor_az.close()
