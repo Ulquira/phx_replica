@@ -10,6 +10,9 @@ fi
 echo "==== INICIANDO SINCRONIZACION DE CATALOGOS ===="
 python -u sync_catalogs.py || echo "Advertencia: Fallo en catálogos, pero continuando..."
 
+echo "==== INICIANDO RECUPERACION RETROACTIVA (BACKFILL) ===="
+python -u backfill_sync.py || echo "Advertencia: Fallo en backfill, pero continuando..."
+
 while true; do
   echo "==== SYNC START: $(date -u +'%Y-%m-%dT%H:%M:%SZ') ===="
   python -u app.py
