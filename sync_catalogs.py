@@ -112,24 +112,17 @@ def sync_table(azure_conn, mysql_conn, table_name):
     # 2. Crear o recrear tabla en MySQL
     cursor = mysql_conn.cursor()
     
-    # Para tablas catalogo, si queremos una réplica exacta sin preocuparnos de llaves primarias complejas,
-    # podemos hacer un Drop y Create, o crearla si no existe y luego hacer un Truncate.
-    # Haremos TRUNCATE para no perder los permisos o vistas asociadas si ya existe.
+    # Para tablas catálogo, forzamos un DROP y CREATE para asegurar que el esquema
+    # siempre esté actualizado (especialmente si cambiaron tipos de datos como de TEXT a BLOB).
+    cursor.execute(f"DROP TABLE IF EXISTS {quote_ident(table_name)}")
     
-    cursor.execute(f"SHOW TABLES LIKE '{table_name}'")
-    exists = cursor.fetchone() is not None
+    column_defs = []
+    for col in columns:
+        column_defs.append(f"{quote_ident(col['name'])} {map_sql_type(col['type'])}")
     
-    if not exists:
-        column_defs = []
-        for col in columns:
-            column_defs.append(f"{quote_ident(col['name'])} {map_sql_type(col['type'])}")
-        
-        create_sql = f"CREATE TABLE {quote_ident(table_name)} ({', '.join(column_defs)})"
-        cursor.execute(create_sql)
-        logger.info(f"Tabla {table_name} creada en MySQL.")
-    
-    # 3. Limpiar tabla destino y cargar nuevos datos (Full Sync / Refresh)
-    cursor.execute(f"TRUNCATE TABLE {quote_ident(table_name)}")
+    create_sql = f"CREATE TABLE {quote_ident(table_name)} ({', '.join(column_defs)})"
+    cursor.execute(create_sql)
+    logger.info(f"Tabla {table_name} (re)creada en MySQL con el esquema actualizado.")
     
     if rows:
         placeholders = ", ".join(["%s"] * len(query_columns))
