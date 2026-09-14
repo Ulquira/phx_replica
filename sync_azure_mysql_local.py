@@ -226,16 +226,23 @@ def ensure_mysql_table(mysql_conn, columns):
     return table_name
 
 
-def load_existing_rows(mysql_conn, table_name, state_column=None):
+def load_existing_rows(mysql_conn, table_name, target_ids, state_column=None):
+    if not target_ids:
+        return {}
+    results = {}
+    chunk_size = 1000
+    id_list = [i for i in target_ids if i is not None]
+    safe_state = safe_name(state_column) if state_column else None
+    col_str = f"OrdenId, {quote_ident(safe_state)}" if safe_state else "OrdenId"
+    
     with mysql_conn.cursor(dictionary=True) as cursor:
-        if state_column:
-            safe_state = safe_name(state_column)
-            cursor.execute(f"SELECT OrdenId, {quote_ident(safe_state)} FROM {quote_ident(table_name)}")
-            rows = cursor.fetchall()
-            return {str(row.get('OrdenId', '')): row for row in rows if row.get('OrdenId') is not None}
-        cursor.execute(f"SELECT OrdenId FROM {quote_ident(table_name)}")
-        rows = cursor.fetchall()
-        return {str(row.get('OrdenId', '')): {} for row in rows if row.get('OrdenId') is not None}
+        for i in range(0, len(id_list), chunk_size):
+            chunk = id_list[i:i + chunk_size]
+            placeholders = ", ".join(["%s"] * len(chunk))
+            cursor.execute(f"SELECT {col_str} FROM {quote_ident(table_name)} WHERE OrdenId IN ({placeholders})", chunk)
+            for r in cursor.fetchall():
+                results[str(r['OrdenId'])] = r
+    return results
 
 
 def ensure_control_table(mysql_conn):
@@ -395,7 +402,8 @@ def sync_once():
         table_name = ensure_mysql_table(mysql_conn, columns)
         target_columns = get_target_columns(mysql_conn, safe_name(MYSQL_TABLE))
         state_column = detect_state_column(columns)
-        existing_rows = load_existing_rows(mysql_conn, table_name, state_column)
+        target_ids = [r.get('OrdenId') for r in rows if r.get('OrdenId') is not None]
+        existing_rows = load_existing_rows(mysql_conn, table_name, target_ids, state_column)
 
         rows_to_upsert = []
         for row in rows:
