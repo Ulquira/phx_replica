@@ -25,7 +25,7 @@ MYSQL_USER = os.getenv("MYSQL_USER")
 MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD")
 
 # Tablas a sincronizar
-TABLES_TO_SYNC = ["Usuarios", "tecnicos", "cuadrillas"]
+TABLES_TO_SYNC = ["Usuarios", "tecnicos", "cuadrillas", "EmpreTerce", "Empresas"]
 
 def get_azure_connection():
     conn_str = (
@@ -143,6 +143,26 @@ def sync_table(azure_conn, mysql_conn, table_name):
             
         logger.info(f"Se insertaron {len(batch_data)} registros en {table_name} (MySQL).")
 
+def create_mysql_view(mysql_conn):
+    logger.info("Creando/Actualizando vista de información de cuadrillas...")
+    view_sql = """
+    CREATE OR REPLACE VIEW vw_info_cuadrillas AS
+    SELECT 
+        e.RazonSocial as Empresa,
+        c.Nombre as Cuadrilla,
+        p.RazonSocial as Partner,
+        u.NumeMovil as Telefono,
+        u.NumeDocuIden as Documento
+    FROM Usuarios u
+    INNER JOIN tecnicos t ON t.codiusua = u.codiusua
+    INNER JOIN cuadrillas c ON t.cuadriid = c.cuadriid
+    INNER JOIN EmpreTerce p ON p.EmpreTerceId = c.EmpreTerceId
+    INNER JOIN Empresas e ON c.EmpresaId = e.EmpresaId
+    """
+    cursor = mysql_conn.cursor()
+    cursor.execute(view_sql)
+    logger.info("Vista vw_info_cuadrillas creada exitosamente.")
+
 def main():
     try:
         azure_conn = get_azure_connection()
@@ -150,6 +170,9 @@ def main():
         
         for table in TABLES_TO_SYNC:
             sync_table(azure_conn, mysql_conn, table)
+            
+        # Crear la vista que integra las tablas replicadas
+        create_mysql_view(mysql_conn)
             
     except Exception as e:
         logger.error(f"Error sincronizando catálogos: {e}")
