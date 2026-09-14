@@ -55,7 +55,7 @@ def get_mysql_connection():
 def quote_ident(name: str) -> str:
     return "`" + name.replace("`", "``") + "`"
 
-def map_sql_type(sql_type: str) -> str:
+def map_sql_type(sql_type: str, char_length=None) -> str:
     t = (sql_type or "").lower()
     if "int" in t and "char" not in t and "varchar" not in t:
         return "BIGINT"
@@ -67,17 +67,27 @@ def map_sql_type(sql_type: str) -> str:
         return "DATETIME"
     if "image" in t or "varbinary" in t or "binary" in t:
         return "LONGBLOB"
-    return "LONGTEXT"
+        
+    if char_length is not None:
+        try:
+            l = int(char_length)
+            if l == -1 or l > 16000:
+                return "LONGTEXT"
+            return f"VARCHAR({l})"
+        except:
+            pass
+            
+    return "VARCHAR(255)"
 
 def get_table_schema(conn, table_name):
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT COLUMN_NAME, DATA_TYPE
+        SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH
         FROM INFORMATION_SCHEMA.COLUMNS
         WHERE TABLE_SCHEMA = 'dbo' AND TABLE_NAME = ?
         ORDER BY ORDINAL_POSITION
     """, (table_name,))
-    columns = [{"name": row[0], "type": row[1]} for row in cursor.fetchall()]
+    columns = [{"name": row[0], "type": row[1], "length": row[2]} for row in cursor.fetchall()]
     return columns
 
 def fetch_all_rows(conn, table_name):
@@ -118,7 +128,7 @@ def sync_table(azure_conn, mysql_conn, table_name):
     
     column_defs = []
     for col in columns:
-        column_defs.append(f"{quote_ident(col['name'])} {map_sql_type(col['type'])}")
+        column_defs.append(f"{quote_ident(col['name'])} {map_sql_type(col['type'], col.get('length'))}")
     
     create_sql = f"CREATE TABLE {quote_ident(table_name)} ({', '.join(column_defs)})"
     cursor.execute(create_sql)
