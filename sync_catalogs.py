@@ -67,6 +67,8 @@ def map_sql_type(sql_type: str, char_length=None) -> str:
         return "DATETIME"
     if "image" in t or "varbinary" in t or "binary" in t:
         return "LONGBLOB"
+    if "geometry" in t or "geography" in t:
+        return "TEXT"
         
     if char_length is not None:
         try:
@@ -101,9 +103,25 @@ def get_real_table_name_and_schema(conn, table_name):
     columns = [{"name": row[0], "type": row[1], "length": row[2]} for row in cursor.fetchall()]
     return real_name, columns
 
-def fetch_all_rows(conn, real_table_name):
+def fetch_all_rows(conn, real_table_name, columns):
     cursor = conn.cursor()
-    cursor.execute(f"SELECT * FROM [dbo].[{real_table_name}]")
+    
+    # Manejo de tipos espaciales (geography/geometry/hierarchyid) que pyodbc no soporta nativamente (Error -151)
+    select_items = []
+    for col in columns:
+        col_name = col["name"]
+        data_type = (col["type"] or "").lower()
+        if data_type in ["geometry", "geography"]:
+            select_items.append(f"CAST([{col_name}].STAsText() AS VARCHAR(MAX)) AS [{col_name}]")
+        elif data_type in ["hierarchyid"]:
+            select_items.append(f"CAST([{col_name}] AS VARCHAR(MAX)) AS [{col_name}]")
+        elif data_type in ["timestamp", "rowversion"]:
+            select_items.append(f"CAST([{col_name}] AS BIGINT) AS [{col_name}]")
+        else:
+            select_items.append(f"[{col_name}]")
+            
+    query = f"SELECT {', '.join(select_items)} FROM [dbo].[{real_table_name}]"
+    cursor.execute(query)
     
     query_columns = [col[0] for col in cursor.description]
     rows = []
@@ -128,7 +146,7 @@ def sync_table(azure_conn, mysql_conn, table_name):
             logger.warning(f"La tabla '{table_name}' no existe en Azure SQL (dbo). Se omite.")
             return False
             
-        rows, query_columns = fetch_all_rows(azure_conn, real_name)
+        rows, query_columns = fetch_all_rows(azure_conn, real_name, columns)
         logger.info(f"Se extrajeron {len(rows)} registros de [{real_name}] (Azure).")
 
         # 2. Crear o recrear tabla en MySQL
