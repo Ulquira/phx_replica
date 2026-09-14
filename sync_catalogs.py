@@ -127,6 +127,3 @@ def sync_direct_query():
 
 if __name__ == "__main__":
     sync_direct_query()
-
-if __name__ == "__main__":
-    main()
