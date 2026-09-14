@@ -24,8 +24,8 @@ MYSQL_DATABASE = os.getenv("MYSQL_DATABASE")
 MYSQL_USER = os.getenv("MYSQL_USER")
 MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD")
 
-# Tablas a sincronizar
-TABLES_TO_SYNC = ["Usuarios", "tecnicos", "cuadrillas", "EmpreTerce", "Empresas"]
+# Tablas a sincronizar (primero las tablas ligeras para que la vista esté lista en segundos)
+TABLES_TO_SYNC = ["Empresas", "EmpreTerce", "cuadrillas", "tecnicos", "Usuarios"]
 
 def get_azure_connection():
     conn_str = (
@@ -155,10 +155,11 @@ def sync_table(azure_conn, mysql_conn, table_name):
             
             batch_data = [tuple(row.get(c) for c in query_columns) for row in rows]
             
-            # Usar lotes pequeños para tablas con fotos/BLOBs para no exceder max_allowed_packet
-            chunk_size = 50 if has_blob else 500
+            # Usar lotes adecuados según tipo
+            chunk_size = 100 if has_blob else 500
             for i in range(0, len(batch_data), chunk_size):
                 cursor.executemany(insert_sql, batch_data[i:i + chunk_size])
+                mysql_conn.commit()
                 
             logger.info(f"¡Éxito! Se insertaron {len(batch_data)} registros en `{table_name}` (MySQL).")
         cursor.close()
