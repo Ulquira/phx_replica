@@ -532,3 +532,12 @@ mysql.connector.errors.ProgrammingError: 1054 (42S22): Unknown column '__row_key
 2026-08-03 12:13:59,847 INFO Omitidas: 1679
 2026-08-03 12:13:59,849 INFO Total de cambios: 83
 2026-08-03 12:13:59,850 INFO ========================================
+2026-08-10 17:06:24,898 ERROR Fallo la sincronización: ('HYT00', '[HYT00] [Microsoft][ODBC Driver 18 for SQL Server]Login timeout expired (0) (SQLDriverConnect)')
+Traceback (most recent call last):
+  File "/app/sync_azure_mysql_local.py", line 364, in sync_once
+    azure_conn = get_azure_connection()
+                 ^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/sync_azure_mysql_local.py", line 75, in get_azure_connection
+    return pyodbc.connect(conn_str)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+pyodbc.OperationalError: ('HYT00', '[HYT00] [Microsoft][ODBC Driver 18 for SQL Server]Login timeout expired (0) (SQLDriverConnect)')
