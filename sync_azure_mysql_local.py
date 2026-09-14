@@ -46,7 +46,7 @@ def safe_name(raw: str) -> str:
     return re.sub(r"[^0-9A-Za-z_]+", "_", raw).strip("_") or "column"
 
 
-def map_sql_type(sql_type: str) -> str:
+def map_sql_type(sql_type: str, char_length=None) -> str:
     t = (sql_type or "").lower()
     if "int" in t and "char" not in t and "varchar" not in t:
         return "BIGINT"
@@ -56,9 +56,19 @@ def map_sql_type(sql_type: str) -> str:
         return "TINYINT"
     if "datetime" in t or "date" in t or "time" in t:
         return "DATETIME"
-    if "char" in t or "text" in t or "xml" in t:
-        return "LONGTEXT"
-    return "LONGTEXT"
+    if "image" in t or "varbinary" in t or "binary" in t:
+        return "LONGBLOB"
+        
+    if char_length is not None:
+        try:
+            l = int(char_length)
+            if l == -1 or l > 16000:
+                return "LONGTEXT"
+            return f"VARCHAR({l})"
+        except:
+            pass
+            
+    return "VARCHAR(255)"
 
 
 def get_azure_connection():
@@ -91,17 +101,17 @@ def get_mysql_connection():
 def get_source_columns(conn):
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT COLUMN_NAME, DATA_TYPE
+        SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH
         FROM INFORMATION_SCHEMA.COLUMNS
         WHERE TABLE_SCHEMA = 'dbo' AND TABLE_NAME = 'VW_WinOrdeTraba'
         ORDER BY ORDINAL_POSITION
     """)
     columns = [
-        {"name": row[0], "type": row[1]}
+        {"name": row[0], "type": row[1], "length": row[2]}
         for row in cursor.fetchall()
     ]
     # Agregamos la columna calculada de georeferencia
-    columns.append({"name": "Georeferencia_tecnico", "type": "varchar"})
+    columns.append({"name": "Georeferencia_tecnico", "type": "varchar", "length": 255})
     return columns
 
 
@@ -172,9 +182,9 @@ def ensure_mysql_table(mysql_conn, columns):
         for col in columns:
             if col['name'].lower() == 'ordenid':
                 has_orden_id = True
-                column_defs.append(f"{quote_ident(col['name'])} {map_sql_type(col['type'])} PRIMARY KEY")
+                column_defs.append(f"{quote_ident(col['name'])} {map_sql_type(col['type'], col.get('length'))} PRIMARY KEY")
             else:
-                column_defs.append(f"{quote_ident(col['name'])} {map_sql_type(col['type'])}")
+                column_defs.append(f"{quote_ident(col['name'])} {map_sql_type(col['type'], col.get('length'))}")
         
         if not has_orden_id:
             column_defs.insert(0, f"{quote_ident('OrdenId')} INT NOT NULL PRIMARY KEY")
