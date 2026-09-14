@@ -79,20 +79,31 @@ def map_sql_type(sql_type: str, char_length=None) -> str:
             
     return "VARCHAR(255)"
 
-def get_table_schema(conn, table_name):
+def get_real_table_name_and_schema(conn, table_name):
     cursor = conn.cursor()
+    # Buscar el nombre real de la tabla sin importar mayúsculas/minúsculas
+    cursor.execute("""
+        SELECT TABLE_NAME 
+        FROM INFORMATION_SCHEMA.TABLES 
+        WHERE TABLE_SCHEMA = 'dbo' AND LOWER(TABLE_NAME) = LOWER(?)
+    """, (table_name,))
+    row = cursor.fetchone()
+    if not row:
+        return None, []
+    real_name = row[0]
+    
     cursor.execute("""
         SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH
         FROM INFORMATION_SCHEMA.COLUMNS
         WHERE TABLE_SCHEMA = 'dbo' AND TABLE_NAME = ?
         ORDER BY ORDINAL_POSITION
-    """, (table_name,))
+    """, (real_name,))
     columns = [{"name": row[0], "type": row[1], "length": row[2]} for row in cursor.fetchall()]
-    return columns
+    return real_name, columns
 
-def fetch_all_rows(conn, table_name):
+def fetch_all_rows(conn, real_table_name):
     cursor = conn.cursor()
-    cursor.execute(f"SELECT * FROM [dbo].[{table_name}]")
+    cursor.execute(f"SELECT * FROM [dbo].[{real_table_name}]")
     
     query_columns = [col[0] for col in cursor.description]
     rows = []
@@ -108,66 +119,84 @@ def fetch_all_rows(conn, table_name):
     return rows, query_columns
 
 def sync_table(azure_conn, mysql_conn, table_name):
-    logger.info(f"Sincronizando tabla: {table_name}")
-    
-    # 1. Obtener esquema y datos de Azure
-    columns = get_table_schema(azure_conn, table_name)
-    if not columns:
-        logger.warning(f"La tabla {table_name} no existe o no tiene columnas en Azure.")
-        return
+    try:
+        logger.info(f"--- Iniciando sincronización de tabla: {table_name} ---")
         
-    rows, query_columns = fetch_all_rows(azure_conn, table_name)
-    logger.info(f"Se extrajeron {len(rows)} registros de {table_name} (Azure).")
-
-    # 2. Crear o recrear tabla en MySQL
-    cursor = mysql_conn.cursor()
-    
-    # Para tablas catálogo, forzamos un DROP y CREATE para asegurar que el esquema
-    # siempre esté actualizado (especialmente si cambiaron tipos de datos como de TEXT a BLOB).
-    cursor.execute(f"DROP TABLE IF EXISTS {quote_ident(table_name)}")
-    
-    column_defs = []
-    for col in columns:
-        column_defs.append(f"{quote_ident(col['name'])} {map_sql_type(col['type'], col.get('length'))}")
-    
-    create_sql = f"CREATE TABLE {quote_ident(table_name)} ({', '.join(column_defs)})"
-    cursor.execute(create_sql)
-    logger.info(f"Tabla {table_name} (re)creada en MySQL con el esquema actualizado.")
-    
-    if rows:
-        placeholders = ", ".join(["%s"] * len(query_columns))
-        insert_sql = f"INSERT INTO {quote_ident(table_name)} ({', '.join(quote_ident(c) for c in query_columns)}) VALUES ({placeholders})"
-        
-        batch_data = [tuple(row.get(c) for c in query_columns) for row in rows]
-        
-        chunk_size = 1000
-        for i in range(0, len(batch_data), chunk_size):
-            cursor.executemany(insert_sql, batch_data[i:i + chunk_size])
+        # 1. Obtener nombre real y esquema de Azure
+        real_name, columns = get_real_table_name_and_schema(azure_conn, table_name)
+        if not real_name or not columns:
+            logger.warning(f"La tabla '{table_name}' no existe en Azure SQL (dbo). Se omite.")
+            return False
             
-        logger.info(f"Se insertaron {len(batch_data)} registros en {table_name} (MySQL).")
+        rows, query_columns = fetch_all_rows(azure_conn, real_name)
+        logger.info(f"Se extrajeron {len(rows)} registros de [{real_name}] (Azure).")
+
+        # 2. Crear o recrear tabla en MySQL
+        cursor = mysql_conn.cursor()
+        
+        # Forzamos DROP y CREATE
+        cursor.execute(f"DROP TABLE IF EXISTS {quote_ident(table_name)}")
+        
+        column_defs = []
+        has_blob = False
+        for col in columns:
+            col_type = map_sql_type(col['type'], col.get('length'))
+            if "blob" in col_type.lower():
+                has_blob = True
+            column_defs.append(f"{quote_ident(col['name'])} {col_type}")
+        
+        create_sql = f"CREATE TABLE {quote_ident(table_name)} ({', '.join(column_defs)}) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+        cursor.execute(create_sql)
+        logger.info(f"Tabla `{table_name}` recreada en MySQL con {len(column_defs)} columnas.")
+        
+        if rows:
+            placeholders = ", ".join(["%s"] * len(query_columns))
+            insert_sql = f"INSERT INTO {quote_ident(table_name)} ({', '.join(quote_ident(c) for c in query_columns)}) VALUES ({placeholders})"
+            
+            batch_data = [tuple(row.get(c) for c in query_columns) for row in rows]
+            
+            # Usar lotes pequeños para tablas con fotos/BLOBs para no exceder max_allowed_packet
+            chunk_size = 50 if has_blob else 500
+            for i in range(0, len(batch_data), chunk_size):
+                cursor.executemany(insert_sql, batch_data[i:i + chunk_size])
+                
+            logger.info(f"¡Éxito! Se insertaron {len(batch_data)} registros en `{table_name}` (MySQL).")
+        cursor.close()
+        return True
+    except Exception as exc:
+        logger.error(f"Error sincronizando tabla '{table_name}': {exc}", exc_info=True)
+        return False
 
 def create_mysql_view(mysql_conn):
-    logger.info("Creando/Actualizando vista de información de cuadrillas...")
-    view_sql = """
-    CREATE OR REPLACE VIEW vw_info_cuadrillas AS
-    SELECT 
-        e.RazonSocial as Empresa,
-        c.Nombre as Cuadrilla,
-        p.RazonSocial as Partner,
-        u.NumeMovil as Telefono,
-        u.NumeDocuIden as Documento,
-        u.foto
-    FROM Usuarios u
-    INNER JOIN tecnicos t ON t.codiusua = u.codiusua
-    INNER JOIN cuadrillas c ON t.cuadriid = c.cuadriid
-    INNER JOIN EmpreTerce p ON p.EmpreTerceId = c.EmpreTerceId
-    INNER JOIN Empresas e ON c.EmpresaId = e.EmpresaId
-    """
-    cursor = mysql_conn.cursor()
-    cursor.execute(view_sql)
-    logger.info("Vista vw_info_cuadrillas creada exitosamente.")
+    try:
+        logger.info("Creando/Actualizando vista `vw_info_cuadrillas` en MySQL...")
+        view_sql = """
+        CREATE OR REPLACE VIEW vw_info_cuadrillas AS
+        SELECT 
+            e.RazonSocial as Empresa,
+            c.Nombre as Cuadrilla,
+            p.RazonSocial as Partner,
+            u.NumeMovil as Telefono,
+            u.NumeDocuIden as Documento,
+            u.foto
+        FROM Usuarios u
+        INNER JOIN tecnicos t ON t.codiusua = u.codiusua
+        INNER JOIN cuadrillas c ON t.cuadriid = c.cuadriid
+        INNER JOIN EmpreTerce p ON p.EmpreTerceId = c.EmpreTerceId
+        INNER JOIN Empresas e ON c.EmpresaId = e.EmpresaId
+        """
+        cursor = mysql_conn.cursor()
+        cursor.execute(view_sql)
+        cursor.close()
+        logger.info("¡Vista `vw_info_cuadrillas` creada exitosamente en MySQL!")
+        return True
+    except Exception as exc:
+        logger.error(f"Error creando vista `vw_info_cuadrillas`: {exc}", exc_info=True)
+        return False
 
 def main():
+    azure_conn = None
+    mysql_conn = None
     try:
         azure_conn = get_azure_connection()
         mysql_conn = get_mysql_connection()
@@ -179,11 +208,15 @@ def main():
         create_mysql_view(mysql_conn)
             
     except Exception as e:
-        logger.error(f"Error sincronizando catálogos: {e}")
+        logger.error(f"Error general en catálogos: {e}", exc_info=True)
     finally:
-        if 'azure_conn' in locals() and azure_conn: azure_conn.close()
-        if 'mysql_conn' in locals() and mysql_conn: mysql_conn.close()
-        logger.info("Proceso finalizado.")
+        if azure_conn: 
+            try: azure_conn.close()
+            except: pass
+        if mysql_conn: 
+            try: mysql_conn.close()
+            except: pass
+        logger.info("=== Proceso de catálogos finalizado ===")
 
 if __name__ == "__main__":
     main()
