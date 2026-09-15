@@ -38,6 +38,7 @@ INNER JOIN tecnicos t ON t.codiusua = u.codiusua
 INNER JOIN cuadrillas c ON t.cuadriid = c.cuadriid
 INNER JOIN EmpreTerce p ON p.EmpreTerceId = c.EmpreTerceId
 INNER JOIN Empresas e ON c.EmpresaId = e.EmpresaId
+WHERE u.fechabaja IS NULL
 """
 
 def clean_cuadrilla_name(raw: str) -> str:
@@ -45,20 +46,26 @@ def clean_cuadrilla_name(raw: str) -> str:
         return ""
     text = raw.strip()
     
-    # 1. Remover prefijos comunes tipo: "D 1 BIO SGI ", "D 10 KAJOMI SGA ", "D 1 TRASLADO LARI ", "BAJA FR ", etc.
-    prefix_pattern = r'^(?:BAJA\s+FR|BAJA|ALTA|D\s*\d+)\s+(?:(?:TRASLADO|REPARACION|INSTALACION)\s+)?(?:BIO|DIGETEL|KAJOMI|SGM|SGI|SGA|TLI|LARI|VISUAL|DATANTENNA|SISCARD|MALLAUSA|COBRA|EZENTIS|GLOBAL|WIN)\s*(?:SGI|SGA|SGM)?\s*'
-    text = re.sub(prefix_pattern, '', text, flags=re.IGNORECASE)
+    # 1. Regla principal: Cortar SIEMPRE todo lo que esté ANTES y HASTA el último SGA, SGI o SGM
+    if re.search(r'\b(?:SGA|SGI|SGM)\b', text, flags=re.IGNORECASE):
+        cleaned = re.sub(r'^.*\b(?:SGA|SGI|SGM)\b\s*', '', text, flags=re.IGNORECASE).strip()
+        # Si al final le quedan sufijos de contrata como "K13 KAJOMI", los limpiamos
+        cleaned = re.sub(r'\s+K\d+\s+.*$', '', cleaned, flags=re.IGNORECASE).strip()
+        if cleaned:
+            return cleaned
+
+    # 2. Si NO tiene SGA, SGI o SGM:
+    # Quitar prefijos al inicio tipo: "D 1 ", "D 10 ", "P 47 ", "K 8 ", "BAJA FR ", "BAJA ", "ALTA "
+    text = re.sub(r'^(?:BAJA\s+FR|BAJA|ALTA|[A-Z]\s*\d+)\s+', '', text, flags=re.IGNORECASE)
     
-    # Remover prefijo si quedó "BAJA FR " o "BAJA " o "ALTA " o "D \d+"
-    text = re.sub(r'^(?:BAJA\s+FR|BAJA|ALTA|D\s*\d+)\s+', '', text, flags=re.IGNORECASE)
+    # Quitar nombres de tipos/operaciones tipo "TRASLADO ", "REPARACION "
+    text = re.sub(r'^(?:TRASLADO|REPARACION|INSTALACION)\s+', '', text, flags=re.IGNORECASE)
     
-    # 2. Remover sufijos tipo: "K13 KAJOMI", "K3 VISUAL", "K19 CESPEDES", "K\d+ .*"
-    suffix_pattern = r'\s+K\d+\s+.*$'
-    text = re.sub(suffix_pattern, '', text, flags=re.IGNORECASE)
+    # Quitar contratas conocidas si están al inicio
+    text = re.sub(r'^(?:BIO|DIGETEL|KAJOMI|TLI|LARI|VISUAL|DATANTENNA|SISCARD|MALLAUSA|COBRA|EZENTIS|GLOBAL|WIN|ALL\s+TELECOM|ANOVO|ONI|BMP|EJAS|OLMA)\s+', '', text, flags=re.IGNORECASE)
     
-    # 3. Limpiar siglas aisladas al inicio o final (ej: "SGI ", "SGA ", "SGM ", "K\d+")
-    text = re.sub(r'^(?:SGI|SGA|SGM|K\d+)\s+', '', text, flags=re.IGNORECASE)
-    text = re.sub(r'\s+(?:SGI|SGA|SGM|K\d+)$', '', text, flags=re.IGNORECASE)
+    # Quitar sufijos tipo "K13 KAJOMI", "K3 VISUAL", "K19 CESPEDES"
+    text = re.sub(r'\s+K\d+\s+.*$', '', text, flags=re.IGNORECASE)
     
     return text.strip()
 
