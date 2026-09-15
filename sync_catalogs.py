@@ -146,7 +146,6 @@ def sync_direct_query():
             `Partner` VARCHAR(255),
             `Telefono` VARCHAR(50),
             `Documento` VARCHAR(50),
-            `Foto` LONGBLOB,
             `Foto_Img` LONGTEXT,
             INDEX idx_cuadrilla (`Cuadrilla`),
             INDEX idx_nombre_limpio (`Nombre_Tecnico_Limpio`),
@@ -157,7 +156,7 @@ def sync_direct_query():
         logger.info(f"Tabla `{TABLE_NAME}` creada en MySQL con índices, Nombre_Tecnico_Limpio y Foto_Img.")
         
         if rows:
-            target_cols = ["Empresa", "Cuadrilla", "Nombre_Tecnico_Limpio", "Partner", "Telefono", "Documento", "Foto", "Foto_Img"]
+            target_cols = ["Empresa", "Cuadrilla", "Nombre_Tecnico_Limpio", "Partner", "Telefono", "Documento", "Foto_Img"]
             placeholders = ", ".join(["%s"] * len(target_cols))
             insert_sql = f"INSERT INTO `{TABLE_NAME}` (`{ '`, `'.join(target_cols) }`) VALUES ({placeholders})"
             
@@ -176,7 +175,6 @@ def sync_direct_query():
                     row_dict.get("Partner"),
                     row_dict.get("Telefono"),
                     row_dict.get("Documento"),
-                    foto_val,
                     img_data_uri
                 ))
             
