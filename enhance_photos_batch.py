@@ -3,7 +3,7 @@ import io
 import time
 import base64
 import logging
-from PIL import Image
+from PIL import Image, ImageOps
 import mysql.connector
 from dotenv import load_dotenv
 from google import genai
@@ -26,23 +26,41 @@ MYSQL_DATABASE = os.getenv("MYSQL_DATABASE", "BD_Phoenix")
 MYSQL_USER = os.getenv("MYSQL_USER", "phxadmin")
 MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "WinTelecom@2026!")
 
-# Prompt estructurado según GUÍA DE FOTOGRAFÍA WIN EN RUTA:
-# 1. Conservar rostro, facciones e identidad exacta del técnico real.
-# 2. Mantener uniforme, casco y accesorios reales del técnico sin cambios.
-# 3. Fondo blanco puro y uniforme (sin sombras ni objetos).
-# 4. Iluminación frontal, limpieza mínima y mejor composición.
-# 5. Encuadre más ajustado, de frente, cabeza y torso.
+# Prompt estructurado para retrato vertical estricto de cabeza a pecho con fondo blanco
 ENHANCE_PROMPT = """
-You are retouching a corporate work portrait. Preserve the person exactly as photographed.
+Strict corporate technician ID portrait guidelines:
 
-STRICT RULES:
-1. FACE AND IDENTITY: Keep the exact same face, eyes, skin tone, expression, hairstyle, and identity as in the original image. Do not change the person, do not replace the face, do not smooth it into a different person.
-2. CLOTHING AND EQUIPMENT: Keep the exact same work uniform, helmet, vest, shirt, badge, lanyard, logos, and accessories shown in the photo. Do not change the uniform, do not create a different shirt or color, do not remove the helmet if present. Only do minimal cleanup on the existing clothes and helmet.
-3. BACKGROUND: Replace the background with a seamless pure white background (#FFFFFF) with no shadows, no clutter, no visible distractions.
-4. FRAMING: Crop tighter to a clean head-and-chest portrait, centered and straightened gently if needed. Keep it close to the original pose and body position, not a full-body shot.
-5. LIGHTING AND CLEANUP: Improve clarity slightly, remove small dust, stains, and minor blemishes, but keep the overall look realistic and natural. No stylization, no cartoon effect, no face sculpting, no body reshaping.
-6. REALISM OVER STYLE: The result should look like a lightly cleaned up original corporate portrait, not a new generated outfit or different person.
+1. ORIENTATION (CRITICAL):
+- Ensure the person is perfectly vertical and upright. Head and helmet MUST be at the top, chest/shoulders at the bottom.
+
+2. FRAMING & CLOSE-UP CROPPING:
+- Frame strictly as a tight head-and-chest portrait (from mid-chest up to top of the helmet).
+- DO NOT show full body, waist, belt, or legs. Cut off below the chest.
+- Center the face and helmet in a balanced vertical or square portrait.
+
+3. PRESERVE IDENTITY & ATTIRE 100%:
+- Keep the EXACT same person, face, facial features, skin tone, and expression.
+- Keep the EXACT original orange WIN vest, safety helmet, company lanyard/badge, gray long sleeves, and contractor logos (WIN, DIGETEL, MALLAUSA, etc.).
+- Do NOT generate random clothing. Clean minor surface dirt on the existing gear.
+
+4. BACKGROUND:
+- Solid, seamless pure white background (#FFFFFF) with no shadows, no corners, no walls.
+
+5. OUTPUT:
+- Professional, sharp, realistic corporate field technician portrait.
 """
+
+def fix_image_orientation(image: Image.Image) -> Image.Image:
+    """Corrige la orientación EXIF y rota a vertical si la foto original fue tomada acostada."""
+    try:
+        image = ImageOps.exif_transpose(image)
+    except Exception:
+        pass
+    
+    # Si la imagen es horizontal (ancho > alto), se toma típicamente con el móvil acostado hacia la izquierda
+    if image.width > image.height:
+        image = image.rotate(270, expand=True)
+    return image
 
 def get_mysql_conn():
     return mysql.connector.connect(
@@ -74,6 +92,7 @@ def enhance_single_image(raw_b64: str) -> str | None:
 
         foto_bytes = base64.b64decode(clean_b64)
         input_image = Image.open(io.BytesIO(foto_bytes))
+        input_image = fix_image_orientation(input_image)
 
         response = client.models.generate_content(
             model='gemini-2.5-flash-image',
