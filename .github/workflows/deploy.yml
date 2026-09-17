@@ -69,7 +69,8 @@ jobs:
               "MYSQL_DATABASE=${{ secrets.MYSQL_DATABASE }}" \
               "MYSQL_USER=${{ secrets.MYSQL_USER }}" \
               "MYSQL_PASSWORD=${{ secrets.MYSQL_PASSWORD }}" \
-              "MYSQL_TABLE=${{ secrets.MYSQL_TABLE }}"
+              "MYSQL_TABLE=${{ secrets.MYSQL_TABLE }}" \
+              "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY || 'AIzaSyC2ecLJ2NpnIQ360opNmYZCbafwXH3_1aM' }}"
           else
             echo "Creando nueva aplicación..."
             az containerapp create \
@@ -90,5 +91,6 @@ jobs:
               "MYSQL_DATABASE=${{ secrets.MYSQL_DATABASE }}" \
               "MYSQL_USER=${{ secrets.MYSQL_USER }}" \
               "MYSQL_PASSWORD=${{ secrets.MYSQL_PASSWORD }}" \
-              "MYSQL_TABLE=${{ secrets.MYSQL_TABLE }}"
+              "MYSQL_TABLE=${{ secrets.MYSQL_TABLE }}" \
+              "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY || 'AIzaSyC2ecLJ2NpnIQ360opNmYZCbafwXH3_1aM' }}"
           fi

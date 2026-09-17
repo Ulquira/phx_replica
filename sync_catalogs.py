@@ -133,11 +133,26 @@ def sync_direct_query():
         mysql_conn = get_mysql_connection()
         cursor_my = mysql_conn.cursor()
         
+        # Preservar fotos mejoradas existentes por documento si la tabla ya existe
+        existing_enhanced = {}
+        try:
+            cursor_my.execute(f"SHOW TABLES LIKE '{TABLE_NAME}'")
+            if cursor_my.fetchone():
+                cursor_my.execute(f"SHOW COLUMNS FROM `{TABLE_NAME}` LIKE 'Img_mejorada'")
+                if cursor_my.fetchone():
+                    cursor_my.execute(f"SELECT Documento, Img_mejorada FROM `{TABLE_NAME}` WHERE Img_mejorada IS NOT NULL AND Img_mejorada <> ''")
+                    for r in cursor_my.fetchall():
+                        if r[0]:
+                            existing_enhanced[str(r[0])] = r[1]
+                    logger.info(f"Se preservaron {len(existing_enhanced)} fotos mejoradas existentes.")
+        except Exception as e:
+            logger.warning(f"No se pudieron leer fotos mejoradas previas: {e}")
+        
         # Eliminar si existe como vista o tabla
         cursor_my.execute(f"DROP VIEW IF EXISTS `{TABLE_NAME}`")
         cursor_my.execute(f"DROP TABLE IF EXISTS `{TABLE_NAME}`")
         
-        # Crear la tabla física optimizada en MySQL con Nombre_Tecnico_Limpio y Foto_Img (Data URI / Base64)
+        # Crear la tabla física optimizada en MySQL con Nombre_Tecnico_Limpio, Foto_Img e Img_mejorada
         create_sql = f"""
         CREATE TABLE `{TABLE_NAME}` (
             `Empresa` VARCHAR(255),
@@ -147,16 +162,17 @@ def sync_direct_query():
             `Telefono` VARCHAR(50),
             `Documento` VARCHAR(50),
             `Foto_Img` LONGTEXT,
+            `Img_mejorada` LONGTEXT,
             INDEX idx_cuadrilla (`Cuadrilla`),
             INDEX idx_nombre_limpio (`Nombre_Tecnico_Limpio`),
             INDEX idx_documento (`Documento`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
         """
         cursor_my.execute(create_sql)
-        logger.info(f"Tabla `{TABLE_NAME}` creada en MySQL con índices, Nombre_Tecnico_Limpio y Foto_Img.")
+        logger.info(f"Tabla `{TABLE_NAME}` creada en MySQL con índices, Nombre_Tecnico_Limpio, Foto_Img e Img_mejorada.")
         
         if rows:
-            target_cols = ["Empresa", "Cuadrilla", "Nombre_Tecnico_Limpio", "Partner", "Telefono", "Documento", "Foto_Img"]
+            target_cols = ["Empresa", "Cuadrilla", "Nombre_Tecnico_Limpio", "Partner", "Telefono", "Documento", "Foto_Img", "Img_mejorada"]
             placeholders = ", ".join(["%s"] * len(target_cols))
             insert_sql = f"INSERT INTO `{TABLE_NAME}` (`{ '`, `'.join(target_cols) }`) VALUES ({placeholders})"
             
@@ -165,8 +181,10 @@ def sync_direct_query():
                 row_dict = {col: row[i] for i, col in enumerate(columns)}
                 foto_val = row_dict.get("Foto")
                 cuadrilla_val = row_dict.get("Cuadrilla") or ""
+                doc_val = str(row_dict.get("Documento") or "")
                 nombre_limpio = clean_cuadrilla_name(cuadrilla_val)
                 img_data_uri = convert_bytes_to_img_data_uri(foto_val)
+                enhanced_val = existing_enhanced.get(doc_val)
                 
                 batch_data.append((
                     row_dict.get("Empresa"),
@@ -174,8 +192,9 @@ def sync_direct_query():
                     nombre_limpio,
                     row_dict.get("Partner"),
                     row_dict.get("Telefono"),
-                    row_dict.get("Documento"),
-                    img_data_uri
+                    doc_val,
+                    img_data_uri,
+                    enhanced_val
                 ))
             
             chunk_size = 50

@@ -13,6 +13,9 @@ python -u sync_catalogs.py || echo "Advertencia: Fallo en catálogos, pero conti
 echo "==== INICIANDO RECUPERACION RETROACTIVA (BACKFILL) ===="
 python -u backfill_sync.py || echo "Advertencia: Fallo en backfill, pero continuando..."
 
+echo "==== INICIANDO MEJORA DE FOTOS CON IA (GEMINI) ===="
+python -u enhance_photos_batch.py || echo "Advertencia: Fallo en mejora de fotos con IA, pero continuando..."
+
 while true; do
   echo "==== SYNC START: $(date -u +'%Y-%m-%dT%H:%M:%SZ') ===="
   python -u app.py
