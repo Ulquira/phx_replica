@@ -71,6 +71,14 @@ def clean_cuadrilla_name(raw: str) -> str:
     
     return text.strip()
 
+def mask_first_four_digits(raw: str) -> str:
+    if not raw:
+        return ""
+    text = str(raw).strip()
+    if len(text) <= 4:
+        return "****"
+    return "****" + text[4:]
+
 def get_azure_connection():
     conn_str = (
         "DRIVER={ODBC Driver 18 for SQL Server};"
@@ -183,20 +191,22 @@ def sync_direct_query():
             `Partner` VARCHAR(255),
             `Telefono` VARCHAR(50),
             `Documento` VARCHAR(50),
+            `Documento_Enmascarado` VARCHAR(50),
             `Foto_Img` LONGTEXT,
             `Img_mejorada` LONGTEXT,
             `foto_aprobada` TINYINT(1) DEFAULT 0,
             INDEX idx_cuadrilla (`Cuadrilla`),
             INDEX idx_nombre_limpio (`Nombre_Tecnico_Limpio`),
             INDEX idx_documento (`Documento`),
+            INDEX idx_doc_enmascarado (`Documento_Enmascarado`),
             INDEX idx_foto_aprobada (`foto_aprobada`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
         """
         cursor_my.execute(create_sql)
-        logger.info(f"Tabla `{TABLE_NAME}` creada en MySQL con índices, Nombre_Tecnico_Limpio, Foto_Img, Img_mejorada y foto_aprobada.")
+        logger.info(f"Tabla `{TABLE_NAME}` creada en MySQL con índices, Nombre_Tecnico_Limpio, Documento_Enmascarado, Foto_Img, Img_mejorada y foto_aprobada.")
         
         if rows:
-            target_cols = ["Empresa", "Cuadrilla", "Nombre_Tecnico_Limpio", "Partner", "Telefono", "Documento", "Foto_Img", "Img_mejorada", "foto_aprobada"]
+            target_cols = ["Empresa", "Cuadrilla", "Nombre_Tecnico_Limpio", "Partner", "Telefono", "Documento", "Documento_Enmascarado", "Foto_Img", "Img_mejorada", "foto_aprobada"]
             placeholders = ", ".join(["%s"] * len(target_cols))
             insert_sql = f"INSERT INTO `{TABLE_NAME}` (`{ '`, `'.join(target_cols) }`) VALUES ({placeholders})"
             
@@ -206,6 +216,7 @@ def sync_direct_query():
                 foto_val = row_dict.get("Foto")
                 cuadrilla_val = row_dict.get("Cuadrilla") or ""
                 doc_val = str(row_dict.get("Documento") or "")
+                doc_masked = mask_first_four_digits(doc_val)
                 nombre_limpio = clean_cuadrilla_name(cuadrilla_val)
                 img_data_uri = convert_bytes_to_img_data_uri(foto_val)
                 enhanced_val = existing_enhanced.get(doc_val)
@@ -218,6 +229,7 @@ def sync_direct_query():
                     row_dict.get("Partner"),
                     row_dict.get("Telefono"),
                     doc_val,
+                    doc_masked,
                     img_data_uri,
                     enhanced_val,
                     approved_val
