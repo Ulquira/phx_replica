@@ -1,8 +1,10 @@
 import os
+import io
 import re
 import base64
 import logging
 from datetime import datetime
+from PIL import Image, ImageOps
 import pyodbc
 import mysql.connector
 from dotenv import load_dotenv
@@ -101,18 +103,18 @@ def convert_bytes_to_img_data_uri(foto_bytes):
         if isinstance(foto_bytes, (bytes, bytearray)):
             if len(foto_bytes) == 0:
                 return None
-            b64 = base64.b64encode(foto_bytes).decode('utf-8')
-            if foto_bytes.startswith(b'\x89PNG'):
-                mime = 'image/png'
-            elif foto_bytes.startswith(b'GIF'):
-                mime = 'image/gif'
-            elif foto_bytes.startswith(b'BM'):
-                mime = 'image/bmp'
-            elif foto_bytes.startswith(b'RIFF') and len(foto_bytes) >= 12 and foto_bytes[8:12] == b'WEBP':
-                mime = 'image/webp'
-            else:
-                mime = 'image/jpeg'
-            return f"data:{mime};base64,{b64}"
+            img = Image.open(io.BytesIO(foto_bytes))
+            try:
+                img = ImageOps.exif_transpose(img)
+            except Exception:
+                pass
+            if img.mode != 'RGB':
+                img = img.convert('RGB')
+            img.thumbnail((600, 600), Image.Resampling.LANCZOS)
+            buf = io.BytesIO()
+            img.save(buf, format='JPEG', quality=82, optimize=True)
+            b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
+            return f"data:image/jpeg;base64,{b64}"
     except Exception:
         return None
     return None

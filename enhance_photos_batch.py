@@ -103,7 +103,13 @@ def enhance_single_image(raw_b64: str) -> str | None:
             for part in candidate.content.parts:
                 if part.inline_data:
                     enhanced_bytes = part.inline_data.data
-                    b64_res = base64.b64encode(enhanced_bytes).decode('utf-8')
+                    img = Image.open(io.BytesIO(enhanced_bytes))
+                    if img.mode != 'RGB':
+                        img = img.convert('RGB')
+                    img.thumbnail((600, 600), Image.Resampling.LANCZOS)
+                    buf = io.BytesIO()
+                    img.save(buf, format='JPEG', quality=82, optimize=True)
+                    b64_res = base64.b64encode(buf.getvalue()).decode('utf-8')
                     return f"data:image/jpeg;base64,{b64_res}"
         return None
     except Exception as exc:
