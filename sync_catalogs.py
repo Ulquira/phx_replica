@@ -135,26 +135,46 @@ def sync_direct_query():
         mysql_conn = get_mysql_connection()
         cursor_my = mysql_conn.cursor()
         
-        # Preservar fotos mejoradas existentes por documento si la tabla ya existe
+        # Preservar fotos mejoradas y estado de aprobación existentes por documento si la tabla ya existe
         existing_enhanced = {}
+        existing_approved = {}
         try:
             cursor_my.execute(f"SHOW TABLES LIKE '{TABLE_NAME}'")
             if cursor_my.fetchone():
                 cursor_my.execute(f"SHOW COLUMNS FROM `{TABLE_NAME}` LIKE 'Img_mejorada'")
-                if cursor_my.fetchone():
-                    cursor_my.execute(f"SELECT Documento, Img_mejorada FROM `{TABLE_NAME}` WHERE Img_mejorada IS NOT NULL AND Img_mejorada <> ''")
+                has_enhanced_col = cursor_my.fetchone() is not None
+                cursor_my.execute(f"SHOW COLUMNS FROM `{TABLE_NAME}` LIKE 'foto_aprobada'")
+                has_approved_col = cursor_my.fetchone() is not None
+
+                if has_enhanced_col or has_approved_col:
+                    select_fields = ["Documento"]
+                    if has_enhanced_col:
+                        select_fields.append("Img_mejorada")
+                    if has_approved_col:
+                        select_fields.append("foto_aprobada")
+
+                    cursor_my.execute(f"SELECT {', '.join(select_fields)} FROM `{TABLE_NAME}`")
                     for r in cursor_my.fetchall():
-                        if r[0]:
-                            existing_enhanced[str(r[0])] = r[1]
-                    logger.info(f"Se preservaron {len(existing_enhanced)} fotos mejoradas existentes.")
+                        doc_key = str(r[0]) if r[0] else ""
+                        if not doc_key:
+                            continue
+                        col_idx = 1
+                        if has_enhanced_col:
+                            if r[col_idx]:
+                                existing_enhanced[doc_key] = r[col_idx]
+                            col_idx += 1
+                        if has_approved_col:
+                            existing_approved[doc_key] = 1 if r[col_idx] else 0
+
+                    logger.info(f"Se preservaron {len(existing_enhanced)} fotos mejoradas y {len(existing_approved)} estados de aprobación previos.")
         except Exception as e:
-            logger.warning(f"No se pudieron leer fotos mejoradas previas: {e}")
+            logger.warning(f"No se pudieron leer datos previos: {e}")
         
         # Eliminar si existe como vista o tabla
         cursor_my.execute(f"DROP VIEW IF EXISTS `{TABLE_NAME}`")
         cursor_my.execute(f"DROP TABLE IF EXISTS `{TABLE_NAME}`")
         
-        # Crear la tabla física optimizada en MySQL con Nombre_Tecnico_Limpio, Foto_Img e Img_mejorada
+        # Crear la tabla física optimizada en MySQL con Nombre_Tecnico_Limpio, Foto_Img, Img_mejorada y foto_aprobada
         create_sql = f"""
         CREATE TABLE `{TABLE_NAME}` (
             `Empresa` VARCHAR(255),
@@ -165,16 +185,18 @@ def sync_direct_query():
             `Documento` VARCHAR(50),
             `Foto_Img` LONGTEXT,
             `Img_mejorada` LONGTEXT,
+            `foto_aprobada` TINYINT(1) DEFAULT 0,
             INDEX idx_cuadrilla (`Cuadrilla`),
             INDEX idx_nombre_limpio (`Nombre_Tecnico_Limpio`),
-            INDEX idx_documento (`Documento`)
+            INDEX idx_documento (`Documento`),
+            INDEX idx_foto_aprobada (`foto_aprobada`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
         """
         cursor_my.execute(create_sql)
-        logger.info(f"Tabla `{TABLE_NAME}` creada en MySQL con índices, Nombre_Tecnico_Limpio, Foto_Img e Img_mejorada.")
+        logger.info(f"Tabla `{TABLE_NAME}` creada en MySQL con índices, Nombre_Tecnico_Limpio, Foto_Img, Img_mejorada y foto_aprobada.")
         
         if rows:
-            target_cols = ["Empresa", "Cuadrilla", "Nombre_Tecnico_Limpio", "Partner", "Telefono", "Documento", "Foto_Img", "Img_mejorada"]
+            target_cols = ["Empresa", "Cuadrilla", "Nombre_Tecnico_Limpio", "Partner", "Telefono", "Documento", "Foto_Img", "Img_mejorada", "foto_aprobada"]
             placeholders = ", ".join(["%s"] * len(target_cols))
             insert_sql = f"INSERT INTO `{TABLE_NAME}` (`{ '`, `'.join(target_cols) }`) VALUES ({placeholders})"
             
@@ -187,6 +209,7 @@ def sync_direct_query():
                 nombre_limpio = clean_cuadrilla_name(cuadrilla_val)
                 img_data_uri = convert_bytes_to_img_data_uri(foto_val)
                 enhanced_val = existing_enhanced.get(doc_val)
+                approved_val = existing_approved.get(doc_val, 0)
                 
                 batch_data.append((
                     row_dict.get("Empresa"),
@@ -196,7 +219,8 @@ def sync_direct_query():
                     row_dict.get("Telefono"),
                     doc_val,
                     img_data_uri,
-                    enhanced_val
+                    enhanced_val,
+                    approved_val
                 ))
             
             chunk_size = 50
