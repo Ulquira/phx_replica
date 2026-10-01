@@ -26,28 +26,30 @@ MYSQL_DATABASE = os.getenv("MYSQL_DATABASE", "BD_Phoenix")
 MYSQL_USER = os.getenv("MYSQL_USER", "phxadmin")
 MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "WinTelecom@2026!")
 
-# Prompt estructurado para retrato vertical estricto de cabeza a pecho con fondo blanco
+# Prompt estructurado para recorte de cabeza a pecho, fondo blanco puro, filtro de belleza basico y 0 cambios en ropa/uniforme
 ENHANCE_PROMPT = """
-Strict corporate technician ID portrait guidelines:
+Task: Professional corporate technical ID portrait retouching.
 
-1. ORIENTATION (CRITICAL):
-- Ensure the person is perfectly vertical and upright. Head and helmet MUST be at the top, chest/shoulders at the bottom.
+STRICT REQUIREMENTS:
 
-2. FRAMING & CLOSE-UP CROPPING:
-- Frame strictly as a tight head-and-chest portrait (from mid-chest up to top of the helmet).
-- DO NOT show full body, waist, belt, or legs. Cut off below the chest.
-- Center the face and helmet in a balanced vertical or square portrait.
+1. ORIENTATION & FRAMING:
+- Ensure the person is perfectly upright and vertical (head/helmet at the top, shoulders/chest at the bottom).
+- Frame strictly as a close-up portrait from mid-chest up to the top of the helmet/head (ID photo framing).
+- DO NOT include legs, waist, belt, or full body. Center the subject.
 
-3. PRESERVE IDENTITY & ATTIRE 100%:
-- Keep the EXACT same person, face, facial features, skin tone, and expression.
-- Keep the EXACT original orange WIN vest, safety helmet, company lanyard/badge, gray long sleeves, and contractor logos (WIN, DIGETEL, MALLAUSA, etc.).
-- Do NOT generate random clothing. Clean minor surface dirt on the existing gear.
+2. BACKGROUND:
+- Replace the entire background with a seamless, clean, pure solid white background (#FFFFFF).
+- No background shadows, no objects, no walls, no borders.
 
-4. BACKGROUND:
-- Solid, seamless pure white background (#FFFFFF) with no shadows, no corners, no walls.
+3. BASIC BEAUTY & NEATNESS FILTER (SUBTLE & NATURAL):
+- Apply a subtle, natural beauty/neatness filter to the face: gentle skin smoothing, soften harsh shadows/shine, even out skin tone, and improve overall face clarity.
+- Keep the exact facial identity, eyes, expression, and natural features 100% authentic. No artificial sculpting or cartoonish effects.
 
-5. OUTPUT:
-- Professional, sharp, realistic corporate field technician portrait.
+4. ABSOLUTE ZERO CLOTHING / GEAR MODIFICATION (DO NOT CHANGE CLOTHES):
+- KEEP THE EXACT SAME ORIGINAL CLOTHING, FABRIC, VEST, POLO/SHIRT, SAFETY HELMET, STRAPS, BADGES, LANYARDS, AND LOGOS EXACTLY AS IN THE ORIGINAL PHOTO.
+- DO NOT replace, redraw, recolor, redesign, or generate different clothes or uniforms.
+- DO NOT remove the helmet or add items that are not in the original photo.
+- Keep the real clothing texture, colors, and logos completely untouched and authentic.
 """
 
 def fix_image_orientation(image: Image.Image) -> Image.Image:
