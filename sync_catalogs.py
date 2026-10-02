@@ -202,6 +202,8 @@ def sync_direct_query():
             INDEX idx_foto_aprobada (`foto_aprobada`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
         """
+        cursor_my.execute(create_sql)
+        mysql_conn.commit()
         logger.info(f"Tabla `{TABLE_NAME}` creada en MySQL con índices, Nombre_Tecnico_Limpio, Foto_Img, Img_mejorada, foto_aprobada y Desaprueba_img.")
         
         if rows:
