@@ -20,6 +20,7 @@ from sync_azure_mysql_local import (
     detect_state_column,
     load_existing_rows,
     upsert_rows_batch,
+    compute_row_fingerprint,
     MYSQL_TABLE,
 )
 
@@ -96,16 +97,18 @@ def run_backfill(start_date="2026-09-11"):
         rows_to_upsert = []
         for row in rows:
             order_id = row.get('OrdenId')
-            existing = existing_rows.get(str(order_id)) if order_id is not None else None
+            existing_info = existing_rows.get(str(order_id)) if order_id is not None else None
 
-            if existing is None:
+            if existing_info is None:
                 rows_to_upsert.append(row)
                 inserted += 1
-            elif state_column and existing.get(safe_name(state_column)) != row.get(state_column):
-                rows_to_upsert.append(row)
-                updated += 1
             else:
-                skipped += 1
+                source_fp = compute_row_fingerprint(row)
+                if existing_info.get('fingerprint') != source_fp:
+                    rows_to_upsert.append(row)
+                    updated += 1
+                else:
+                    skipped += 1
 
         if rows_to_upsert:
             logger.info(f"Insertando/Actualizando {len(rows_to_upsert)} registros en MySQL (Lotes de 500)...")

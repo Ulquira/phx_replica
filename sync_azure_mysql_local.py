@@ -2,6 +2,7 @@ import os
 import re
 import json
 import csv
+import zlib
 import hashlib
 import logging
 from datetime import datetime
@@ -226,22 +227,67 @@ def ensure_mysql_table(mysql_conn, columns):
     return table_name
 
 
+# Columnas clave y de texto para huella digital de cambios (fingerprint)
+FINGERPRINT_KEY_COLS = [
+    'Estado', 'Estado OT', 'Cuadrilla', 'FechaUltiEsta', 'F.Visita', 'FechaIniVisi', 'FechaFinVisi',
+    'TeleMovilNume', 'TeleFijoNume', 'Georeferencia_tecnico', 'Motivo', 'Motivo Regestión',
+    'Motivo Cancelación', 'Motivo Finalización', 'Motivo Anulación', 'Motivo Suspensión',
+    'Usuario Responsable', 'Usuario Asignó', 'Direccion', 'ClienteFinal', 'Número Documento',
+    'IdenServi', 'Producto', 'Sector Operativo', 'Zona', 'Region'
+]
+FINGERPRINT_TEXT_COLS = [
+    'Observaciones OT', 'Observaciones Tareas', 'Diagnóstico Técnico', 'Datos Técnicos', 'Historial Estados'
+]
+
+
+def compute_row_fingerprint(row_dict):
+    """Calcula un hash MD5 de firma basado en todos los campos dinámicos de la fila."""
+    parts = []
+    for col in FINGERPRINT_KEY_COLS:
+        val = row_dict.get(col)
+        parts.append(str(val) if val is not None else "")
+    for col in FINGERPRINT_TEXT_COLS:
+        val = row_dict.get(col)
+        if val is None:
+            parts.append("")
+        elif isinstance(val, int):
+            parts.append(str(val))
+        else:
+            # Calcular CRC32 localmente sobre el string para que coincida con el CRC32 de MySQL
+            parts.append(str(zlib.crc32(str(val).encode('utf-8'))))
+    return hashlib.md5("|".join(parts).encode('utf-8')).hexdigest()
+
+
 def load_existing_rows(mysql_conn, table_name, target_ids, state_column=None):
     if not target_ids:
         return {}
     results = {}
     chunk_size = 1000
     id_list = [i for i in target_ids if i is not None]
-    safe_state = safe_name(state_column) if state_column else None
-    col_str = f"OrdenId, {quote_ident(safe_state)}" if safe_state else "OrdenId"
-    
+
+    # Construir SELECT ligero que trae columnas clave + CRC32 calculado en MySQL para campos de texto largo
+    select_parts = [quote_ident("OrdenId")]
+    for col in FINGERPRINT_KEY_COLS:
+        select_parts.append(quote_ident(col))
+    for idx, col in enumerate(FINGERPRINT_TEXT_COLS):
+        select_parts.append(f"CRC32(COALESCE({quote_ident(col)}, '')) AS {quote_ident(f'_crc_{idx}')}")
+
+    col_str = ", ".join(select_parts)
+
     with mysql_conn.cursor(dictionary=True) as cursor:
         for i in range(0, len(id_list), chunk_size):
             chunk = id_list[i:i + chunk_size]
             placeholders = ", ".join(["%s"] * len(chunk))
             cursor.execute(f"SELECT {col_str} FROM {quote_ident(table_name)} WHERE OrdenId IN ({placeholders})", chunk)
             for r in cursor.fetchall():
-                results[str(r['OrdenId'])] = r
+                # Reconstruir diccionario para fingerprint
+                row_for_fp = {col: r.get(col) for col in FINGERPRINT_KEY_COLS}
+                for idx, col in enumerate(FINGERPRINT_TEXT_COLS):
+                    row_for_fp[col] = r.get(f"_crc_{idx}")
+                results[str(r['OrdenId'])] = {
+                    'fingerprint': compute_row_fingerprint(row_for_fp),
+                    'raw': r
+                }
     return results
 
 
@@ -408,16 +454,18 @@ def sync_once():
         rows_to_upsert = []
         for row in rows:
             order_id = row.get('OrdenId')
-            existing = existing_rows.get(str(order_id)) if order_id is not None else None
+            existing_info = existing_rows.get(str(order_id)) if order_id is not None else None
 
-            if existing is None:
+            if existing_info is None:
                 rows_to_upsert.append(row)
                 inserted += 1
-            elif state_column and existing.get(safe_name(state_column)) != row.get(state_column):
-                rows_to_upsert.append(row)
-                updated += 1
             else:
-                skipped += 1
+                source_fp = compute_row_fingerprint(row)
+                if existing_info.get('fingerprint') != source_fp:
+                    rows_to_upsert.append(row)
+                    updated += 1
+                else:
+                    skipped += 1
                 
         if rows_to_upsert:
             upsert_rows_batch(mysql_conn, table_name, columns, rows_to_upsert, target_columns)
