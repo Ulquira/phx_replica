@@ -26,29 +26,37 @@ MYSQL_DATABASE = os.getenv("MYSQL_DATABASE", "BD_Phoenix")
 MYSQL_USER = os.getenv("MYSQL_USER", "phxadmin")
 MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "WinTelecom@2026!")
 
-# Prompt de recorte y limpieza de fondo sin filtros de belleza ni alteraciones faciales/corporales
+# Prompt estructurado para retrato vertical estricto de cabeza a pecho con fondo blanco
 ENHANCE_PROMPT = """
-Task: Clean background removal and portrait framing ONLY.
+Task: Professional corporate technical ID portrait framing and background cleanup.
 
-STRICT RULES (ZERO BEAUTY FILTER / ZERO AI GENERATION):
+CRITICAL INSTRUCTIONS:
 
-1. ABSOLUTE FACIAL PRESERVATION (100% UNTOUCHED):
-- DO NOT apply any beauty filter, skin smoothing, makeup effect, or facial retouching.
-- Keep the exact original face, beard, facial hair, skin pores, wrinkles, blemishes, eyes, lips, and natural skin tone 100% untouched and identical to the original photo.
-- DO NOT alter, rejuvenate, soften, or redraw any part of the face.
+1. FRAMING & CROPPING (MOST IMPORTANT):
+- Crop the image tightly to a chest-up portrait (head, safety helmet, face, neck, and upper chest/shoulders only).
+- If the original photo is long, tall, 3/4 body, or full body, SHORTEN AND CROP IT TIGHTLY from mid-chest up to just above the top of the helmet.
+- Completely CUT OFF and DO NOT SHOW the waist, belt, hips, legs, or lower body.
+- Center the person horizontally and vertically, matching a standard corporate ID card photo.
 
-2. BACKGROUND REPLACEMENT ONLY:
-- Replace the entire background behind the person with a solid, clean, seamless pure white background (#FFFFFF).
-- Do not leave background shadows, objects, walls, or borders.
+2. ORIENTATION & STRAIGHTENING:
+- Ensure the person is perfectly upright and vertical.
+- Head and helmet MUST be at the top, shoulders and chest at the bottom.
+- Straighten the subject if tilted or angled.
 
-3. FRAMING & ORIENTATION:
-- Ensure the person is perfectly upright and vertical (head/helmet on top, chest/shoulders at the bottom).
-- Frame strictly as a close-up ID portrait from mid-chest up to the top of the helmet/head.
-- DO NOT show legs, waist, or full body. Center the subject.
+3. BACKGROUND REPLACEMENT:
+- Replace the entire background behind the person with a solid, seamless, pure clean white background (#FFFFFF).
+- No background shadows, no objects, no clutter, no walls, no borders.
 
-4. ABSOLUTE ZERO CLOTHING / GEAR MODIFICATION:
-- Keep the EXACT same original clothing, fabric, vest, shirt, helmet, straps, logos, badges, and lanyards.
-- DO NOT modify, redraw, recolor, or replace any part of the uniform or gear.
+4. ABSOLUTE ZERO FACE OR BODY ALTERATION:
+- DO NOT change the person's face, facial features, eyes, nose, mouth, skin tone, beard, wrinkles, or expression.
+- DO NOT apply aggressive beauty filters, plastic skin smoothing, or makeup effects.
+- DO NOT alter the body shape or posture.
+- Keep the real person 100% authentic, natural, and recognizable.
+
+5. ABSOLUTE ZERO CLOTHING OR GEAR MODIFICATION:
+- Keep the EXACT same uniform, fabric, orange vest, helmet, shirt, badges, lanyard, and logos exactly as shown in the original photo.
+- DO NOT replace, redraw, or recolor the clothes, helmet, or vest.
+- Only apply minimal subtle lighting and clarity cleanup to make the photo look neat and professional on white background.
 """
 
 def fix_image_orientation(image: Image.Image) -> Image.Image:
