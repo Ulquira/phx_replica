@@ -222,7 +222,12 @@ def sync_direct_query():
                 enhanced_val = existing_enhanced.get(doc_val)
                 approved_val = existing_approved.get(doc_val, 0)
                 disapproved_val = existing_disapproved.get(doc_val, None)
-                
+
+                # Si la imagen está marcada como desaprobada, no cargar fotos originales ni de IA
+                if disapproved_val and "DESAPROB" in str(disapproved_val).upper():
+                    img_data_uri = None
+                    enhanced_val = None
+
                 batch_data.append((
                     row_dict.get("Empresa"),
                     cuadrilla_val,

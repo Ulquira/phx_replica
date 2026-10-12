@@ -135,6 +135,7 @@ def process_all_photos():
         FROM vw_info_cuadrillas 
         WHERE Foto_Img IS NOT NULL AND Foto_Img <> '' 
           AND (Img_mejorada IS NULL OR Img_mejorada = '')
+          AND (Desaprueba_img IS NULL OR Desaprueba_img NOT LIKE '%DESAPROB%')
     """)
     rows = cursor.fetchall()
     logger.info(f"Se encontraron {len(rows)} fotos pendientes por procesar con IA.")
