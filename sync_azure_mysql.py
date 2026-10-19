@@ -1,5 +1,6 @@
 import os
 import re
+import json
 import hashlib
 from datetime import datetime
 from typing import Dict, List, Tuple
@@ -85,7 +86,7 @@ def detect_date_column(columns: List[Dict[str, object]]) -> str | None:
 def build_source_query(date_column: str | None) -> str:
     base = "SELECT * FROM [dbo].[VW_WinOrdeTraba]"
     if date_column:
-        return f"{base} WHERE CAST([{date_column}] AS date) = CAST(GETDATE() AS date)"
+        return f"{base} WHERE [{date_column}] >= DATEADD(day, -2, CAST(GETDATE() AS date)) AND [{date_column}] < DATEADD(day, 2, CAST(GETDATE() AS date))"
     return base
 
 
@@ -168,7 +169,8 @@ def sync_rows():
             if key_col == "__row_key":
                 key_value = compute_row_key(row)
             else:
-                key_value = row.get(next(c["name"] for c in columns if re.sub(r"[^0-9A-Za-z_]+", "_", c["name"]).strip("_") or "id" == key_col))
+                matched_source_col = next((c["name"] for c in columns if (re.sub(r"[^0-9A-Za-z_]+", "_", c["name"]).strip("_") or "id") == key_col), None)
+                key_value = row.get(matched_source_col) if matched_source_col else None
                 if key_value is None:
                     key_value = compute_row_key(row)
 
@@ -197,13 +199,12 @@ def sync_rows():
 
 def insert_row(mysql_conn, table_name: str, columns: List[Dict[str, object]], key_col: str, key_value: str, row: Dict[str, object]):
     filtered_columns = [c for c in columns if c["name"].lower() not in ["link", "token", "cuadrilla_nombre", "georeferencia_tecnico"]]
-    safe_cols = [re.sub(r"[^0-9A-Za-z_]+", "_", c["name"]).strip("_") or "column" for c in filtered_columns]
-    if key_col == "__row_key":
-        safe_cols = ["__row_key"] + safe_cols
-        values = [key_value] + [row.get(c["name"]) for c in filtered_columns]
-    else:
-        safe_cols = [key_col] + safe_cols
-        values = [key_value] + [row.get(c["name"]) for c in filtered_columns]
+    col_mapping = {re.sub(r"[^0-9A-Za-z_]+", "_", c["name"]).strip("_") or "column": row.get(c["name"]) for c in filtered_columns}
+    col_mapping[key_col] = key_value
+
+    safe_cols = list(col_mapping.keys())
+    values = [col_mapping[c] for c in safe_cols]
+
     placeholders = ", ".join(["%s"] * len(safe_cols))
     columns_sql = ", ".join([quote_ident(col) for col in safe_cols])
     cursor = mysql_conn.cursor()
@@ -212,21 +213,19 @@ def insert_row(mysql_conn, table_name: str, columns: List[Dict[str, object]], ke
 
 def update_row(mysql_conn, table_name: str, columns: List[Dict[str, object]], key_col: str, key_value: str, row: Dict[str, object]):
     filtered_columns = [c for c in columns if c["name"].lower() not in ["link", "token", "cuadrilla_nombre", "georeferencia_tecnico"]]
-    safe_cols = [re.sub(r"[^0-9A-Za-z_]+", "_", c["name"]).strip("_") or "column" for c in filtered_columns]
-    if key_col == "__row_key":
-        safe_cols = ["__row_key"] + safe_cols
-        values = [key_value] + [row.get(c["name"]) for c in filtered_columns]
-    else:
-        safe_cols = [key_col] + safe_cols
-        values = [key_value] + [row.get(c["name"]) for c in filtered_columns]
-    assignments = ", ".join([f"{quote_ident(col)} = %s" for col in safe_cols[1:]])
+    col_mapping = {re.sub(r"[^0-9A-Za-z_]+", "_", c["name"]).strip("_") or "column": row.get(c["name"]) for c in filtered_columns}
+    col_mapping.pop(key_col, None)
+
+    safe_cols = list(col_mapping.keys())
+    values = [col_mapping[c] for c in safe_cols]
+
+    assignments = ", ".join([f"{quote_ident(col)} = %s" for col in safe_cols])
     cursor = mysql_conn.cursor()
     cursor.execute(
         f"UPDATE {quote_ident(table_name)} SET {assignments} WHERE {quote_ident(key_col)} = %s",
-        values[1:] + [key_value],
+        values + [key_value],
     )
 
 
 if __name__ == "__main__":
-    import json
     sync_rows()

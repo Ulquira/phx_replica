@@ -15,4 +15,7 @@ test_cleaner*.py
 test_prompt*.py
 check_img_mejorada.py
 clear_img_mejorada.py
+*.zip
+fotos_por_partner/
+vw_info_cuadrillas_Images*/
 .DS_Store

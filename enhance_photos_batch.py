@@ -20,11 +20,11 @@ if not api_key:
 client = genai.Client(api_key=api_key)
 
 # Conexión MySQL de Producción
-MYSQL_HOST = os.getenv("MYSQL_HOST", "phx-win-mysql-9508.mysql.database.azure.com")
+MYSQL_HOST = os.getenv("MYSQL_HOST")
 MYSQL_PORT = int(os.getenv("MYSQL_PORT", "3306"))
-MYSQL_DATABASE = os.getenv("MYSQL_DATABASE", "BD_Phoenix")
-MYSQL_USER = os.getenv("MYSQL_USER", "phxadmin")
-MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "WinTelecom@2026!")
+MYSQL_DATABASE = os.getenv("MYSQL_DATABASE")
+MYSQL_USER = os.getenv("MYSQL_USER")
+MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD")
 
 # Prompt estructurado para retrato vertical estricto de cabeza a pecho con fondo blanco
 ENHANCE_PROMPT = """
@@ -108,7 +108,12 @@ def enhance_single_image(raw_b64: str) -> str | None:
             contents=[input_image, ENHANCE_PROMPT],
         )
 
+        if not response or not response.candidates:
+            return None
+
         for candidate in response.candidates:
+            if not candidate.content or not candidate.content.parts:
+                continue
             for part in candidate.content.parts:
                 if part.inline_data:
                     enhanced_bytes = part.inline_data.data

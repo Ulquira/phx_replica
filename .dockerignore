@@ -1,0 +1,15 @@
+.env
+.env.*
+.git/
+.github/
+.venv/
+.venv2/
+__pycache__/
+*.py[cod]
+*.zip
+*.pdf
+*.jpg
+*.png
+*.log
+sync_summary.csv
+fotos_por_partner/

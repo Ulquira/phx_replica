@@ -51,22 +51,33 @@ def clean_cuadrilla_name(raw: str) -> str:
     # 1. Regla principal: Cortar SIEMPRE todo lo que esté ANTES y HASTA el último SGA, SGI o SGM
     if re.search(r'\b(?:SGA|SGI|SGM)\b', text, flags=re.IGNORECASE):
         cleaned = re.sub(r'^.*\b(?:SGA|SGI|SGM)\b\s*', '', text, flags=re.IGNORECASE).strip()
-        # Si al final le quedan sufijos de contrata como "K13 KAJOMI", los limpiamos
         cleaned = re.sub(r'\s+K\d+\s+.*$', '', cleaned, flags=re.IGNORECASE).strip()
         if cleaned:
             return cleaned
 
     # 2. Si NO tiene SGA, SGI o SGM:
-    # Quitar prefijos al inicio tipo: "D 1 ", "D 10 ", "P 47 ", "K 8 ", "BAJA FR ", "BAJA ", "ALTA "
-    text = re.sub(r'^(?:BAJA\s+FR|BAJA|ALTA|[A-Z]\s*\d+)\s+', '', text, flags=re.IGNORECASE)
+    # Quitar códigos de cuadrilla tipo: "DP 14 ", "P 3 ", "K 11 ", "D 3 ", "BAJA FR ", etc.
+    text = re.sub(r'^(?:BAJA\s+FR|BAJA|ALTA|[A-Z]{1,3}\s*\d+)\s+', '', text, flags=re.IGNORECASE)
     
-    # Quitar nombres de tipos/operaciones tipo "TRASLADO ", "REPARACION "
-    text = re.sub(r'^(?:TRASLADO|REPARACION|INSTALACION)\s+', '', text, flags=re.IGNORECASE)
+    # 3. Quitar tipos de operación y modalidades operativas
+    operaciones = r'MOTOWIN|POSTVENTA|TRASLADO|REPARACION|INSTALACION|MANTENIMIENTO'
+    text = re.sub(rf'^(?:{operaciones})\s+', '', text, flags=re.IGNORECASE)
+    text = re.sub(rf'^(?:{operaciones})\s+', '', text, flags=re.IGNORECASE)
     
-    # Quitar contratas conocidas si están al inicio
-    text = re.sub(r'^(?:BIO|DIGETEL|KAJOMI|TLI|LARI|VISUAL|DATANTENNA|SISCARD|MALLAUSA|COBRA|EZENTIS|GLOBAL|WIN|ALL\s+TELECOM|ANOVO|ONI|BMP|EJAS|OLMA)\s+', '', text, flags=re.IGNORECASE)
+    # 4. Quitar contratas conocidas
+    contratas = (
+        r'ALFITELL|AP&TELL|AVANTEL|BIO|BMP|CESPEDES|COBRA|COMFICA|DATANTENNA|'
+        r'DIGETEL|DOMINION|EJAS|GRUPO\s+JBA|JBF(?:\s+TELCO)?|KAJOMI|LP\s+STAR|'
+        r'M&D|MALLAUSA|MEBRA|OLMA|SISCARD|SUMMUM|TADELC|TLI|VISUAL|YEVIZACOM|'
+        r'ZARITEL|LARI|EZENTIS|GLOBAL|WIN|ALL\s+TELECOM|ANOVO|ONI'
+    )
+    text = re.sub(rf'^(?:{contratas})\s+', '', text, flags=re.IGNORECASE)
     
-    # Quitar sufijos tipo "K13 KAJOMI", "K3 VISUAL", "K19 CESPEDES"
+    # Limpieza secundaria por si el orden viene invertido (ej. "POSTVENTA VISUAL" o "TRASLADO TADELC")
+    text = re.sub(rf'^(?:{operaciones})\s+', '', text, flags=re.IGNORECASE)
+    text = re.sub(rf'^(?:{contratas})\s+', '', text, flags=re.IGNORECASE)
+    
+    # 5. Quitar sufijos tipo "K13 KAJOMI", "K3 VISUAL", "K19 CESPEDES"
     text = re.sub(r'\s+K\d+\s+.*$', '', text, flags=re.IGNORECASE)
     
     return text.strip()
@@ -134,119 +145,89 @@ def sync_direct_query():
         
         mysql_conn = get_mysql_connection()
         cursor_my = mysql_conn.cursor()
-        
-        # Preservar fotos mejoradas, estado de aprobación y motivo de desaprobación existentes por documento si la tabla ya existe
-        existing_enhanced = {}
-        existing_approved = {}
-        existing_disapproved = {}
-        try:
-            cursor_my.execute(f"SHOW TABLES LIKE '{TABLE_NAME}'")
-            if cursor_my.fetchone():
-                cursor_my.execute(f"SHOW COLUMNS FROM `{TABLE_NAME}` LIKE 'Img_mejorada'")
-                has_enhanced_col = cursor_my.fetchone() is not None
-                cursor_my.execute(f"SHOW COLUMNS FROM `{TABLE_NAME}` LIKE 'foto_aprobada'")
-                has_approved_col = cursor_my.fetchone() is not None
-                cursor_my.execute(f"SHOW COLUMNS FROM `{TABLE_NAME}` LIKE 'Desaprueba_img'")
-                has_disapproved_col = cursor_my.fetchone() is not None
 
-                if has_enhanced_col or has_approved_col or has_disapproved_col:
-                    select_fields = ["Documento"]
-                    if has_enhanced_col:
-                        select_fields.append("Img_mejorada")
-                    if has_approved_col:
-                        select_fields.append("foto_aprobada")
-                    if has_disapproved_col:
-                        select_fields.append("Desaprueba_img")
+        cursor_my.execute(f"""
+            CREATE TABLE IF NOT EXISTS `{TABLE_NAME}` (
+                `Empresa` VARCHAR(255),
+                `Cuadrilla` VARCHAR(255),
+                `Nombre_Tecnico_Limpio` VARCHAR(255),
+                `Partner` VARCHAR(255),
+                `Telefono` VARCHAR(50),
+                `Documento` VARCHAR(50),
+                `Foto_Img` LONGTEXT,
+                `Img_mejorada` LONGTEXT,
+                `foto_aprobada` TINYINT(1) DEFAULT 0,
+                `Desaprueba_img` VARCHAR(50) DEFAULT NULL,
+                INDEX idx_cuadrilla (`Cuadrilla`),
+                INDEX idx_nombre_limpio (`Nombre_Tecnico_Limpio`),
+                INDEX idx_documento (`Documento`),
+                INDEX idx_foto_aprobada (`foto_aprobada`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        """)
 
-                    cursor_my.execute(f"SELECT {', '.join(select_fields)} FROM `{TABLE_NAME}`")
-                    for r in cursor_my.fetchall():
-                        doc_key = str(r[0]) if r[0] else ""
-                        if not doc_key:
-                            continue
-                        col_idx = 1
-                        if has_enhanced_col:
-                            if r[col_idx]:
-                                existing_enhanced[doc_key] = r[col_idx]
-                            col_idx += 1
-                        if has_approved_col:
-                            existing_approved[doc_key] = 1 if r[col_idx] else 0
-                            col_idx += 1
-                        if has_disapproved_col:
-                            if r[col_idx] is not None:
-                                existing_disapproved[doc_key] = r[col_idx]
+        required_columns = {
+            "Nombre_Tecnico_Limpio": "VARCHAR(255)",
+            "Img_mejorada": "LONGTEXT",
+            "foto_aprobada": "TINYINT(1) DEFAULT 0",
+            "Desaprueba_img": "VARCHAR(50) DEFAULT NULL",
+        }
+        for column_name, column_type in required_columns.items():
+            cursor_my.execute(f"SHOW COLUMNS FROM `{TABLE_NAME}` LIKE %s", (column_name,))
+            if not cursor_my.fetchone():
+                cursor_my.execute(f"ALTER TABLE `{TABLE_NAME}` ADD COLUMN `{column_name}` {column_type}")
 
-                    logger.info(f"Se preservaron {len(existing_enhanced)} fotos mejoradas, {len(existing_approved)} estados de aprobación y {len(existing_disapproved)} desaprobaciones previas.")
-        except Exception as e:
-            logger.warning(f"No se pudieron leer datos previos: {e}")
-        
-        # Eliminar si existe como vista o tabla
-        cursor_my.execute(f"DROP VIEW IF EXISTS `{TABLE_NAME}`")
-        cursor_my.execute(f"DROP TABLE IF EXISTS `{TABLE_NAME}`")
-        
-        # Crear la tabla física optimizada en MySQL con Nombre_Tecnico_Limpio, Foto_Img, Img_mejorada, foto_aprobada y Desaprueba_img
-        create_sql = f"""
-        CREATE TABLE `{TABLE_NAME}` (
-            `Empresa` VARCHAR(255),
-            `Cuadrilla` VARCHAR(255),
-            `Nombre_Tecnico_Limpio` VARCHAR(255),
-            `Partner` VARCHAR(255),
-            `Telefono` VARCHAR(50),
-            `Documento` VARCHAR(50),
-            `Foto_Img` LONGTEXT,
-            `Img_mejorada` LONGTEXT,
-            `foto_aprobada` TINYINT(1) DEFAULT 0,
-            `Desaprueba_img` VARCHAR(50) DEFAULT NULL,
-            INDEX idx_cuadrilla (`Cuadrilla`),
-            INDEX idx_nombre_limpio (`Nombre_Tecnico_Limpio`),
-            INDEX idx_documento (`Documento`),
-            INDEX idx_foto_aprobada (`foto_aprobada`)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        cursor_my.execute(f"SELECT Documento, Desaprueba_img FROM `{TABLE_NAME}` WHERE Documento IS NOT NULL AND Documento <> ''")
+        existing_records = {str(r[0]): r[1] for r in cursor_my.fetchall()}
+
+        update_sql = f"""
+            UPDATE `{TABLE_NAME}`
+            SET Empresa = %s, Cuadrilla = %s, Nombre_Tecnico_Limpio = %s,
+                Partner = %s, Telefono = %s, Foto_Img = %s
+            WHERE Documento = %s
         """
-        cursor_my.execute(create_sql)
+        insert_sql = f"""
+            INSERT INTO `{TABLE_NAME}`
+                (Empresa, Cuadrilla, Nombre_Tecnico_Limpio, Partner, Telefono, Foto_Img, Documento)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """
+
+        inserted_count = 0
+        updated_count = 0
+        for row in rows:
+            row_dict = {col: row[i] for i, col in enumerate(columns)}
+            cuadrilla_val = row_dict.get("Cuadrilla") or ""
+            doc_val = str(row_dict.get("Documento") or "")
+            disapproved_val = existing_records.get(doc_val)
+
+            # Si el técnico tiene desaprobación registrada, no sobreescribir la imagen
+            if disapproved_val and "DESAPROB" in str(disapproved_val).upper():
+                img_data_uri = None
+            else:
+                img_data_uri = convert_bytes_to_img_data_uri(row_dict.get("Foto"))
+
+            record_values = (
+                row_dict.get("Empresa"),
+                cuadrilla_val,
+                clean_cuadrilla_name(cuadrilla_val),
+                row_dict.get("Partner"),
+                row_dict.get("Telefono"),
+                img_data_uri,
+            )
+
+            if doc_val and doc_val in existing_records:
+                cursor_my.execute(update_sql, (*record_values, doc_val))
+                updated_count += 1
+            else:
+                cursor_my.execute(insert_sql, (*record_values, doc_val))
+                inserted_count += 1
+                if doc_val:
+                    existing_records[doc_val] = None
+
         mysql_conn.commit()
-        logger.info(f"Tabla `{TABLE_NAME}` creada en MySQL con índices, Nombre_Tecnico_Limpio, Foto_Img, Img_mejorada, foto_aprobada y Desaprueba_img.")
-        
-        if rows:
-            target_cols = ["Empresa", "Cuadrilla", "Nombre_Tecnico_Limpio", "Partner", "Telefono", "Documento", "Foto_Img", "Img_mejorada", "foto_aprobada", "Desaprueba_img"]
-            placeholders = ", ".join(["%s"] * len(target_cols))
-            insert_sql = f"INSERT INTO `{TABLE_NAME}` (`{ '`, `'.join(target_cols) }`) VALUES ({placeholders})"
-            
-            batch_data = []
-            for row in rows:
-                row_dict = {col: row[i] for i, col in enumerate(columns)}
-                foto_val = row_dict.get("Foto")
-                cuadrilla_val = row_dict.get("Cuadrilla") or ""
-                doc_val = str(row_dict.get("Documento") or "")
-                nombre_limpio = clean_cuadrilla_name(cuadrilla_val)
-                img_data_uri = convert_bytes_to_img_data_uri(foto_val)
-                enhanced_val = existing_enhanced.get(doc_val)
-                approved_val = existing_approved.get(doc_val, 0)
-                disapproved_val = existing_disapproved.get(doc_val, None)
-
-                # Si la imagen está marcada como desaprobada, no cargar fotos originales ni de IA
-                if disapproved_val and "DESAPROB" in str(disapproved_val).upper():
-                    img_data_uri = None
-                    enhanced_val = None
-
-                batch_data.append((
-                    row_dict.get("Empresa"),
-                    cuadrilla_val,
-                    nombre_limpio,
-                    row_dict.get("Partner"),
-                    row_dict.get("Telefono"),
-                    doc_val,
-                    img_data_uri,
-                    enhanced_val,
-                    approved_val,
-                    disapproved_val
-                ))
-            
-            chunk_size = 50
-            for i in range(0, len(batch_data), chunk_size):
-                cursor_my.executemany(insert_sql, batch_data[i:i + chunk_size])
-                mysql_conn.commit()
-                
-            logger.info(f"¡Éxito! Se insertaron {len(batch_data)} registros en `{TABLE_NAME}` en MySQL con Nombre_Tecnico_Limpio y Foto_Img.")
+        logger.info(
+            f"Catálogo actualizado sin alterar aprobaciones: "
+            f"{inserted_count} nuevos, {updated_count} actualizados."
+        )
             
         cursor_my.close()
         cursor_az.close()

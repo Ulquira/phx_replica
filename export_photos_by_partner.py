@@ -23,11 +23,11 @@ def export_photos():
             pass
     
     conn = mysql.connector.connect(
-        host=os.getenv('MYSQL_HOST', 'phx-win-mysql-9508.mysql.database.azure.com'),
-        port=int(os.getenv('MYSQL_PORT', 3306)),
-        user=os.getenv('MYSQL_USER', 'phxadmin'),
-        password=os.getenv('MYSQL_PASSWORD', 'WinTelecom@2026!'),
-        database=os.getenv('MYSQL_DATABASE', 'BD_Phoenix')
+        host=os.getenv('MYSQL_HOST'),
+        port=int(os.getenv('MYSQL_PORT', '3306')),
+        user=os.getenv('MYSQL_USER'),
+        password=os.getenv('MYSQL_PASSWORD'),
+        database=os.getenv('MYSQL_DATABASE')
     )
     cursor = conn.cursor(dictionary=True)
     cursor.execute("""
