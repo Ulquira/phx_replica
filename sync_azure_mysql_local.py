@@ -156,7 +156,7 @@ def fetch_source_rows(conn, columns):
             for idx, col_name in enumerate(query_columns):
                 value = raw[idx]
                 if isinstance(value, datetime):
-                    row[col_name] = value.isoformat(timespec="seconds")
+                    row[col_name] = value.strftime("%Y-%m-%d %H:%M:%S")
                 else:
                     row[col_name] = value
             rows.append(row)
@@ -240,16 +240,27 @@ FINGERPRINT_TEXT_COLS = [
 ]
 
 
+def normalize_val_for_fp(val):
+    if val is None:
+        return ""
+    if isinstance(val, datetime):
+        return val.strftime("%Y-%m-%d %H:%M:%S")
+    s = str(val).strip()
+    if len(s) >= 19 and s[10] == "T":
+        s = s.replace("T", " ")
+    return s
+
+
 def compute_row_fingerprint(row_dict):
     """Calcula un hash MD5 de firma basado en todos los campos dinámicos de la fila."""
     parts = []
     for col in FINGERPRINT_KEY_COLS:
         val = row_dict.get(col)
-        parts.append(str(val) if val is not None else "")
+        parts.append(normalize_val_for_fp(val))
     for col in FINGERPRINT_TEXT_COLS:
         val = row_dict.get(col)
-        if val is None:
-            parts.append("")
+        if val is None or val == "":
+            parts.append("0")
         elif isinstance(val, int):
             parts.append(str(val))
         else:

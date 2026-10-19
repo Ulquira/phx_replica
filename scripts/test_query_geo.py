@@ -1,6 +1,18 @@
+import os
 import pyodbc
+from dotenv import load_dotenv
 
-conn_str = "DRIVER={ODBC Driver 18 for SQL Server};SERVER=tcp:phoenixwin.database.windows.net,1433;DATABASE=WIN.Phoenix;UID=Consulta;PWD=M@chu#Pichu710_;Encrypt=yes;TrustServerCertificate=yes;"
+load_dotenv()
+
+conn_str = (
+    "DRIVER={ODBC Driver 18 for SQL Server};"
+    f"SERVER={os.getenv('AZURE_SERVER', 'tcp:phoenixwin.database.windows.net,1433')};"
+    f"DATABASE={os.getenv('AZURE_DATABASE', 'WIN.Phoenix')};"
+    f"UID={os.getenv('AZURE_USER')};"
+    f"PWD={os.getenv('AZURE_PASSWORD')};"
+    "Encrypt=yes;"
+    "TrustServerCertificate=yes;"
+)
 try:
     conn = pyodbc.connect(conn_str)
     cursor = conn.cursor()

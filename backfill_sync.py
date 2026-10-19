@@ -57,7 +57,7 @@ def fetch_backfill_rows(conn, columns, start_date="2026-09-11"):
             for idx, col_name in enumerate(query_columns):
                 value = raw[idx]
                 if isinstance(value, datetime):
-                    row[col_name] = value.isoformat(timespec="seconds")
+                    row[col_name] = value.strftime("%Y-%m-%d %H:%M:%S")
                 else:
                     row[col_name] = value
             rows.append(row)
