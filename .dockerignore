@@ -11,5 +11,7 @@ __pycache__/
 *.jpg
 *.png
 *.log
+*.docx
 sync_summary.csv
 fotos_por_partner/
+vw_info_cuadrillas_Images*/
