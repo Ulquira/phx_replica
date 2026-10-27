@@ -196,7 +196,7 @@ def sync_direct_query():
         for row in rows:
             row_dict = {col: row[i] for i, col in enumerate(columns)}
             cuadrilla_val = row_dict.get("Cuadrilla") or ""
-            doc_val = str(row_dict.get("Documento") or "")
+            doc_val = str(row_dict.get("Documento") or "").strip()[:50]
             disapproved_val = existing_records.get(doc_val)
 
             # Si el técnico tiene desaprobación registrada, no sobreescribir la imagen

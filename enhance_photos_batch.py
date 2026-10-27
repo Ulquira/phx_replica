@@ -138,7 +138,7 @@ def process_all_photos():
     cursor.execute("""
         SELECT Documento, Nombre_Tecnico_Limpio, Foto_Img 
         FROM vw_info_cuadrillas 
-        WHERE Foto_Img IS NOT NULL AND Foto_Img <> '' 
+        WHERE Foto_Img IS NOT NULL AND Foto_Img LIKE 'data:image/%' 
           AND (Img_mejorada IS NULL OR Img_mejorada = '')
           AND (Desaprueba_img IS NULL OR Desaprueba_img NOT LIKE '%DESAPROB%')
     """)
