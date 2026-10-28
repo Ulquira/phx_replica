@@ -34,13 +34,16 @@ SELECT
     p.RazonSocial AS Partner,
     u.NumeMovil AS Telefono,
     u.NumeDocuIden AS Documento,
-    u.Foto AS Foto
+    u.Foto AS Foto,
+    CASE 
+        WHEN u.fechabaja IS NOT NULL OR c.fechabaja IS NOT NULL OR t.fechabaja IS NOT NULL THEN 'Baja'
+        ELSE 'Activo'
+    END AS Estado
 FROM Usuarios u
 INNER JOIN tecnicos t ON t.codiusua = u.codiusua
 INNER JOIN cuadrillas c ON t.cuadriid = c.cuadriid
 INNER JOIN EmpreTerce p ON p.EmpreTerceId = c.EmpreTerceId
 INNER JOIN Empresas e ON c.EmpresaId = e.EmpresaId
-WHERE u.fechabaja IS NULL
 """
 
 def clean_cuadrilla_name(raw: str) -> str:
@@ -83,8 +86,15 @@ def clean_cuadrilla_name(raw: str) -> str:
     return text.strip()
 
 def get_azure_connection():
+    drivers = pyodbc.drivers()
+    driver = "ODBC Driver 18 for SQL Server"
+    if driver not in drivers:
+        for fallback in ["ODBC Driver 17 for SQL Server", "SQL Server"]:
+            if fallback in drivers:
+                driver = fallback
+                break
     conn_str = (
-        "DRIVER={ODBC Driver 18 for SQL Server};"
+        f"DRIVER={{{driver}}};"
         f"SERVER={AZURE_SERVER};"
         f"DATABASE={AZURE_DATABASE};"
         f"UID={AZURE_USER};"
@@ -158,10 +168,12 @@ def sync_direct_query():
                 `Img_mejorada` LONGTEXT,
                 `foto_aprobada` TINYINT(1) DEFAULT 0,
                 `Desaprueba_img` VARCHAR(50) DEFAULT NULL,
+                `Estado` VARCHAR(50) DEFAULT 'Activo',
                 INDEX idx_cuadrilla (`Cuadrilla`),
                 INDEX idx_nombre_limpio (`Nombre_Tecnico_Limpio`),
                 INDEX idx_documento (`Documento`),
-                INDEX idx_foto_aprobada (`foto_aprobada`)
+                INDEX idx_foto_aprobada (`foto_aprobada`),
+                INDEX idx_estado (`Estado`)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
         """)
 
@@ -170,6 +182,7 @@ def sync_direct_query():
             "Img_mejorada": "LONGTEXT",
             "foto_aprobada": "TINYINT(1) DEFAULT 0",
             "Desaprueba_img": "VARCHAR(50) DEFAULT NULL",
+            "Estado": "VARCHAR(50) DEFAULT 'Activo'",
         }
         for column_name, column_type in required_columns.items():
             cursor_my.execute(f"SHOW COLUMNS FROM `{TABLE_NAME}` LIKE %s", (column_name,))
@@ -182,21 +195,25 @@ def sync_direct_query():
         update_sql = f"""
             UPDATE `{TABLE_NAME}`
             SET Empresa = %s, Cuadrilla = %s, Nombre_Tecnico_Limpio = %s,
-                Partner = %s, Telefono = %s, Foto_Img = %s
+                Partner = %s, Telefono = %s, Foto_Img = COALESCE(%s, Foto_Img),
+                Estado = %s
             WHERE Documento = %s
         """
         insert_sql = f"""
             INSERT INTO `{TABLE_NAME}`
-                (Empresa, Cuadrilla, Nombre_Tecnico_Limpio, Partner, Telefono, Foto_Img, Documento)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
+                (Empresa, Cuadrilla, Nombre_Tecnico_Limpio, Partner, Telefono, Foto_Img, Estado, Documento)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         """
 
         inserted_count = 0
         updated_count = 0
+        synced_docs = set()
+
         for row in rows:
             row_dict = {col: row[i] for i, col in enumerate(columns)}
             cuadrilla_val = row_dict.get("Cuadrilla") or ""
             doc_val = str(row_dict.get("Documento") or "").strip()[:50]
+            estado_val = row_dict.get("Estado") or "Activo"
             disapproved_val = existing_records.get(doc_val)
 
             # Si el técnico tiene desaprobación registrada, no sobreescribir la imagen
@@ -212,6 +229,7 @@ def sync_direct_query():
                 row_dict.get("Partner"),
                 row_dict.get("Telefono"),
                 img_data_uri,
+                estado_val,
             )
 
             if doc_val and doc_val in existing_records:
@@ -223,10 +241,29 @@ def sync_direct_query():
                 if doc_val:
                     existing_records[doc_val] = None
 
+            if doc_val:
+                synced_docs.add(doc_val)
+
+        # Conciliación: marcar como 'Baja' registros en MySQL que ya no existen en Azure
+        missing_docs = set(existing_records.keys()) - synced_docs
+        marked_baja = 0
+        if missing_docs:
+            batch_size = 500
+            missing_list = list(missing_docs)
+            for i in range(0, len(missing_list), batch_size):
+                chunk = missing_list[i:i + batch_size]
+                format_strings = ','.join(['%s'] * len(chunk))
+                cursor_my.execute(
+                    f"UPDATE `{TABLE_NAME}` SET Estado = 'Baja' WHERE Documento IN ({format_strings}) AND (Estado <> 'Baja' OR Estado IS NULL)",
+                    tuple(chunk)
+                )
+                marked_baja += cursor_my.rowcount
+            if marked_baja > 0:
+                logger.info(f"Reconciliación: {marked_baja} técnicos no encontrados en Azure marcados como 'Baja'.")
+
         mysql_conn.commit()
         logger.info(
-            f"Catálogo actualizado sin alterar aprobaciones: "
-            f"{inserted_count} nuevos, {updated_count} actualizados."
+            f"Catálogo actualizado: {inserted_count} nuevos, {updated_count} actualizados, {marked_baja} reconciliados como baja."
         )
             
         cursor_my.close()

@@ -141,6 +141,7 @@ def process_all_photos():
         WHERE Foto_Img IS NOT NULL AND Foto_Img LIKE 'data:image/%' 
           AND (Img_mejorada IS NULL OR Img_mejorada = '')
           AND (Desaprueba_img IS NULL OR Desaprueba_img NOT LIKE '%DESAPROB%')
+          AND (Estado IS NULL OR Estado <> 'Baja')
     """)
     rows = cursor.fetchall()
     logger.info(f"Se encontraron {len(rows)} fotos pendientes por procesar con IA.")
