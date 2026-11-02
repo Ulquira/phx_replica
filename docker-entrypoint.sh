@@ -24,10 +24,11 @@ while true; do
   echo "==== SYNC END: $(date -u +'%Y-%m-%dT%H:%M:%SZ') ===="
 
   CYCLE_COUNT=$((CYCLE_COUNT + 1))
-  # Cada 30 ciclos (~30 min), refrescar catálogo de cuadrillas y procesar fotos nuevas con IA
+  # Cada 30 ciclos (~30 min), refrescar catálogo de cuadrillas, barrido profundo de 48h y fotos IA
   if [ "$CYCLE_COUNT" -ge 30 ]; then
-    echo "==== CICLO PROGRAMADO: REFRESCANDO CATALOGO Y FOTOS PENDIENTES ===="
+    echo "==== CICLO PROGRAMADO: REFRESCANDO CATALOGO, BARRIDO PROFUNDO (48H) Y FOTOS PENDIENTES ===="
     python -u sync_catalogs.py || echo "Advertencia: Fallo en sincronización periódica de catálogos..."
+    python -u app.py 2 || echo "Advertencia: Fallo en barrido profundo de 48h..."
     python -u enhance_photos_batch.py || echo "Advertencia: Fallo en procesamiento de fotos pendientes..."
     CYCLE_COUNT=0
   fi

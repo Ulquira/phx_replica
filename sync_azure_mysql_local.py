@@ -124,7 +124,7 @@ def pick_date_column(columns):
     return None
 
 
-def fetch_source_rows(conn, columns):
+def fetch_source_rows(conn, columns, lookback_days=1):
     date_column = pick_date_column(columns)
     
     base_query = """
@@ -140,7 +140,7 @@ def fetch_source_rows(conn, columns):
     """
     
     if date_column:
-        query = f"{base_query} WHERE t.[{date_column}] >= CAST(GETDATE() AS date) AND t.[{date_column}] < DATEADD(day, 1, CAST(GETDATE() AS date))"
+        query = f"{base_query} WHERE t.[{date_column}] >= DATEADD(day, -{lookback_days}, CAST(GETDATE() AS date))"
     else:
         query = base_query
 
@@ -434,12 +434,14 @@ def upsert_rows_batch(mysql_conn, table_name, columns, rows_to_upsert, target_co
             cursor.executemany(insert_sql, batch_data[i:i + chunk_size])
 
 
-def sync_once():
+def sync_once(lookback_days=None):
+    if lookback_days is None:
+        lookback_days = int(os.getenv("SYNC_LOOKBACK_DAYS", "1"))
     started_at = datetime.now()
     azure_conn = None
     mysql_conn = None
     status = "success"
-    message = "Sincronización completada"
+    message = f"Sincronización completada (Ventana: {lookback_days} día(s))"
     error = None
     rows_processed = 0
     inserted = 0
@@ -451,10 +453,10 @@ def sync_once():
         mysql_conn = get_mysql_connection()
         ensure_control_table(mysql_conn)
 
-        logger.info("Iniciando sincronización")
-        print("=== Iniciando sincronización ===", flush=True)
+        logger.info(f"Iniciando sincronización (Ventana retrospectiva: {lookback_days} día(s))")
+        print(f"=== Iniciando sincronización (Ventana: {lookback_days} día(s)) ===", flush=True)
         columns = get_source_columns(azure_conn)
-        rows = fetch_source_rows(azure_conn, columns)
+        rows = fetch_source_rows(azure_conn, columns, lookback_days=lookback_days)
         rows_processed = len(rows)
         table_name = ensure_mysql_table(mysql_conn, columns)
         target_columns = get_target_columns(mysql_conn, safe_name(MYSQL_TABLE))
