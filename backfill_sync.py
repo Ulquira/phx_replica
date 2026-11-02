@@ -135,4 +135,8 @@ def run_backfill(start_date="2026-09-11"):
             azure_conn.close()
 
 if __name__ == "__main__":
-    run_backfill("2026-09-11")
+    import sys
+    from datetime import timedelta
+    default_date = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
+    target_start = sys.argv[1] if len(sys.argv) > 1 else default_date
+    run_backfill(target_start)
