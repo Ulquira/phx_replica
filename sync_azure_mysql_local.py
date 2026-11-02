@@ -421,12 +421,12 @@ def upsert_rows_batch(mysql_conn, table_name, columns, rows_to_upsert, target_co
 
     placeholders = ", ".join(["%s"] * len(target_names))
     update_clause = ", ".join([
-        f"{quote_ident(t)} = VALUES({quote_ident(t)})" 
-        if t.lower() != "georeferencia_tecnico" 
-        else f"{quote_ident(t)} = COALESCE(VALUES({quote_ident(t)}), {quote_ident(t)})"
+        f"{quote_ident(t)} = `new_row`.{quote_ident(t)}"
+        if t.lower() != "georeferencia_tecnico"
+        else f"{quote_ident(t)} = COALESCE(`new_row`.{quote_ident(t)}, {quote_ident(table_name)}.{quote_ident(t)})"
         for t in target_names if t.lower() != "ordenid"
     ])
-    insert_sql = f"INSERT INTO {quote_ident(table_name)} ({', '.join(quote_ident(c) for c in target_names)}) VALUES ({placeholders}) ON DUPLICATE KEY UPDATE {update_clause}"
+    insert_sql = f"INSERT INTO {quote_ident(table_name)} ({', '.join(quote_ident(c) for c in target_names)}) VALUES ({placeholders}) AS `new_row` ON DUPLICATE KEY UPDATE {update_clause}"
     
     with mysql_conn.cursor() as cursor:
         chunk_size = 500

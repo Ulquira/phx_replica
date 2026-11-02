@@ -112,7 +112,7 @@ def get_mysql_connection():
         user=MYSQL_USER,
         password=MYSQL_PASSWORD,
         database=MYSQL_DATABASE,
-        autocommit=True,
+        autocommit=False,
         ssl_disabled=True,
         connection_timeout=15
     )
@@ -205,8 +205,8 @@ def sync_direct_query():
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         """
 
-        inserted_count = 0
-        updated_count = 0
+        batch_updates = []
+        batch_inserts = []
         synced_docs = set()
 
         for row in rows:
@@ -233,25 +233,31 @@ def sync_direct_query():
             )
 
             if doc_val and doc_val in existing_records:
-                cursor_my.execute(update_sql, (*record_values, doc_val))
-                updated_count += 1
+                batch_updates.append((*record_values, doc_val))
             else:
-                cursor_my.execute(insert_sql, (*record_values, doc_val))
-                inserted_count += 1
+                batch_inserts.append((*record_values, doc_val))
                 if doc_val:
                     existing_records[doc_val] = None
 
             if doc_val:
                 synced_docs.add(doc_val)
 
+        # Ejecución en bloques (batch chunks) para evitar round-trips N+1
+        BATCH_SIZE = 500
+        for i in range(0, len(batch_updates), BATCH_SIZE):
+            cursor_my.executemany(update_sql, batch_updates[i:i + BATCH_SIZE])
+        updated_count = len(batch_updates)
+
+        for i in range(0, len(batch_inserts), BATCH_SIZE):
+            cursor_my.executemany(insert_sql, batch_inserts[i:i + BATCH_SIZE])
+        inserted_count = len(batch_inserts)
+
         # Conciliación: marcar como 'Baja' registros en MySQL que ya no existen en Azure
-        missing_docs = set(existing_records.keys()) - synced_docs
+        missing_docs = [d for d in (set(existing_records.keys()) - synced_docs) if d and str(d).strip()]
         marked_baja = 0
         if missing_docs:
-            batch_size = 500
-            missing_list = list(missing_docs)
-            for i in range(0, len(missing_list), batch_size):
-                chunk = missing_list[i:i + batch_size]
+            for i in range(0, len(missing_docs), BATCH_SIZE):
+                chunk = missing_docs[i:i + BATCH_SIZE]
                 format_strings = ','.join(['%s'] * len(chunk))
                 cursor_my.execute(
                     f"UPDATE `{TABLE_NAME}` SET Estado = 'Baja' WHERE Documento IN ({format_strings}) AND (Estado <> 'Baja' OR Estado IS NULL)",
@@ -269,7 +275,13 @@ def sync_direct_query():
         cursor_my.close()
         cursor_az.close()
     except Exception as exc:
+        if mysql_conn:
+            try:
+                mysql_conn.rollback()
+            except Exception:
+                pass
         logger.error(f"Error durante la sincronización de la consulta: {exc}", exc_info=True)
+        raise
     finally:
         if azure_conn:
             try: azure_conn.close()

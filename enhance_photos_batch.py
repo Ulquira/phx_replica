@@ -18,6 +18,7 @@ api_key = os.getenv("GEMINI_API_KEY")
 if not api_key:
     raise RuntimeError("GEMINI_API_KEY no está configurada. Añádela en el entorno o en .env con una clave válida de Google AI Studio.")
 client = genai.Client(api_key=api_key)
+GEMINI_IMAGE_MODEL = os.getenv("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image")
 
 # Conexión MySQL de Producción
 MYSQL_HOST = os.getenv("MYSQL_HOST")
@@ -92,7 +93,7 @@ def ensure_column_exists(conn):
         logger.info("Columna `Img_mejorada` creada con éxito.")
     cursor.close()
 
-def enhance_single_image(raw_b64: str) -> str | None:
+def enhance_single_image(raw_b64: str, max_retries: int = 3) -> str | None:
     try:
         if "," in raw_b64:
             clean_b64 = raw_b64.split(",", 1)[1]
@@ -103,10 +104,23 @@ def enhance_single_image(raw_b64: str) -> str | None:
         input_image = Image.open(io.BytesIO(foto_bytes))
         input_image = fix_image_orientation(input_image)
 
-        response = client.models.generate_content(
-            model='gemini-2.5-flash-image',
-            contents=[input_image, ENHANCE_PROMPT],
-        )
+        response = None
+        for attempt in range(max_retries):
+            try:
+                response = client.models.generate_content(
+                    model=GEMINI_IMAGE_MODEL,
+                    contents=[input_image, ENHANCE_PROMPT],
+                )
+                break
+            except Exception as api_err:
+                err_msg = str(api_err)
+                if ("429" in err_msg or "ResourceExhausted" in err_msg) and attempt < max_retries - 1:
+                    wait_sec = (attempt + 1) * 3
+                    logger.warning(f"Límite de tasa alcanzado. Reintentando en {wait_sec}s...")
+                    time.sleep(wait_sec)
+                    continue
+                logger.error(f"Error en API Gemini ({GEMINI_IMAGE_MODEL}): {api_err}")
+                return None
 
         if not response or not response.candidates:
             return None
@@ -127,53 +141,65 @@ def enhance_single_image(raw_b64: str) -> str | None:
                     return f"data:image/jpeg;base64,{b64_res}"
         return None
     except Exception as exc:
-        logger.error(f"Error procesando imagen con Gemini: {exc}")
+        logger.error(f"Error procesando imagen: {exc}")
         return None
 
 def process_all_photos():
-    conn = get_mysql_conn()
-    ensure_column_exists(conn)
-    
-    cursor = conn.cursor(dictionary=True)
-    cursor.execute("""
-        SELECT Documento, Nombre_Tecnico_Limpio, Foto_Img 
-        FROM vw_info_cuadrillas 
-        WHERE Foto_Img IS NOT NULL AND Foto_Img LIKE 'data:image/%' 
-          AND (Img_mejorada IS NULL OR Img_mejorada = '')
-          AND (Desaprueba_img IS NULL OR Desaprueba_img NOT LIKE '%DESAPROB%')
-          AND (Estado IS NULL OR Estado <> 'Baja')
-    """)
-    rows = cursor.fetchall()
-    logger.info(f"Se encontraron {len(rows)} fotos pendientes por procesar con IA.")
+    BATCH_SIZE = int(os.getenv("PHOTO_BATCH_SIZE", "50"))
+    conn = None
+    try:
+        conn = get_mysql_conn()
+        ensure_column_exists(conn)
 
-    cursor_upd = conn.cursor()
-    success_count = 0
+        total_processed = 0
+        success_count = 0
 
-    for idx, r in enumerate(rows, 1):
-        doc = r["Documento"]
-        nombre = r["Nombre_Tecnico_Limpio"]
-        foto_b64 = r["Foto_Img"]
+        with conn.cursor(dictionary=True) as cursor, conn.cursor() as cursor_upd:
+            while True:
+                cursor.execute("""
+                    SELECT Documento, Nombre_Tecnico_Limpio, Foto_Img 
+                    FROM vw_info_cuadrillas 
+                    WHERE Foto_Img IS NOT NULL AND Foto_Img LIKE 'data:image/%' 
+                      AND (Img_mejorada IS NULL OR Img_mejorada = '')
+                      AND (Desaprueba_img IS NULL OR Desaprueba_img NOT LIKE '%DESAPROB%')
+                      AND (Estado IS NULL OR Estado <> 'Baja')
+                    LIMIT %s
+                """, (BATCH_SIZE,))
+                rows = cursor.fetchall()
+                if not rows:
+                    break
 
-        logger.info(f"[{idx}/{len(rows)}] Procesando foto de: {nombre} ({doc})...")
-        enhanced_data_uri = enhance_single_image(foto_b64)
+                logger.info(f"Lote de {len(rows)} fotos pendientes obtenido para procesar...")
+                for idx, r in enumerate(rows, 1):
+                    total_processed += 1
+                    doc = r["Documento"]
+                    nombre = r["Nombre_Tecnico_Limpio"]
+                    foto_b64 = r["Foto_Img"]
 
-        if enhanced_data_uri:
-            cursor_upd.execute(
-                "UPDATE `vw_info_cuadrillas` SET `Img_mejorada` = %s WHERE `Documento` = %s",
-                (enhanced_data_uri, doc)
-            )
-            success_count += 1
-            logger.info(f" -> [OK] Guardada imagen mejorada para {nombre}")
-        else:
-            logger.warning(f" -> [FAIL] No se pudo generar la imagen para {nombre}")
+                    logger.info(f"[{total_processed}] Procesando foto de: {nombre} ({doc})...")
+                    enhanced_data_uri = enhance_single_image(foto_b64)
 
-        # Pequeña pausa para no saturar la cuota de rate limit por minuto
-        time.sleep(1.5)
+                    if enhanced_data_uri:
+                        cursor_upd.execute(
+                            "UPDATE `vw_info_cuadrillas` SET `Img_mejorada` = %s WHERE `Documento` = %s",
+                            (enhanced_data_uri, doc)
+                        )
+                        success_count += 1
+                        logger.info(f" -> [OK] Guardada imagen mejorada para {nombre}")
+                    else:
+                        logger.warning(f" -> [FAIL] No se pudo generar la imagen para {nombre}")
 
-    cursor.close()
-    cursor_upd.close()
-    conn.close()
-    logger.info(f"=== Procesamiento completado: {success_count}/{len(rows)} fotos mejoradas ===")
+                    time.sleep(1.5)
+
+        logger.info(f"=== Procesamiento completado: {success_count}/{total_processed} fotos mejoradas ===")
+    except Exception as exc:
+        logger.error(f"Error durante el procesamiento de fotos: {exc}", exc_info=True)
+    finally:
+        if conn:
+            try:
+                conn.close()
+            except Exception:
+                pass
 
 if __name__ == "__main__":
     process_all_photos()
