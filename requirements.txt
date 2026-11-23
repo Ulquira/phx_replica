@@ -3,3 +3,4 @@ mysql-connector-python==26.7.0
 python-dotenv==1.2.2
 google-genai==2.24.0
 pillow==12.3.0
+pydantic==2.13.5

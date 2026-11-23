@@ -1,34 +1,25 @@
-import os
-import re
 import base64
-import shutil
+import re
 from pathlib import Path
-import mysql.connector
-from dotenv import load_dotenv
 
-load_dotenv()
+from phx_sync.db import get_mysql_connection
 
 OUTPUT_DIR = Path(__file__).with_name("fotos_por_partner")
 
+
 def sanitize_name(name: str) -> str:
-    return re.sub(r'[\\/*?:"<>|]', '_', name.strip()) if name else "SIN_NOMBRE"
+    return re.sub(r'[\\/*?:"<>|]', "_", name.strip()) if name else "SIN_NOMBRE"
+
 
 def export_photos():
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    # Limpiar todos los archivos .jpg previos recursivamente
     for f in OUTPUT_DIR.rglob("*.jpg"):
         try:
             f.unlink()
         except Exception:
             pass
-    
-    conn = mysql.connector.connect(
-        host=os.getenv('MYSQL_HOST'),
-        port=int(os.getenv('MYSQL_PORT', '3306')),
-        user=os.getenv('MYSQL_USER'),
-        password=os.getenv('MYSQL_PASSWORD'),
-        database=os.getenv('MYSQL_DATABASE')
-    )
+
+    conn = get_mysql_connection(autocommit=True)
     cursor = conn.cursor(dictionary=True)
     cursor.execute("""
         SELECT Partner, Documento, Nombre_Tecnico_Limpio, Foto_Img, foto_aprobada 

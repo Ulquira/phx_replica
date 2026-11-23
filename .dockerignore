@@ -15,3 +15,7 @@ __pycache__/
 sync_summary.csv
 fotos_por_partner/
 vw_info_cuadrillas_Images*/
+infra/
+scripts/
+tests/
+GEMINI.md

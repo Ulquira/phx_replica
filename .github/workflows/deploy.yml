@@ -54,7 +54,14 @@ jobs:
       - name: Desplegar en Container Apps
         run: |
           if az containerapp show --name ${{ env.APP_NAME }} --resource-group ${{ env.RESOURCE_GROUP }} &>/dev/null; then
-            echo "La aplicación ya existe. Actualizando a la nueva imagen..."
+            echo "La aplicación ya existe. Actualizando secretos e imagen..."
+            az containerapp secret set \
+              --name ${{ env.APP_NAME }} \
+              --resource-group ${{ env.RESOURCE_GROUP }} \
+              --secrets \
+                "azure-password=${{ secrets.AZURE_PASSWORD }}" \
+                "mysql-password=${{ secrets.MYSQL_PASSWORD }}" \
+                "gemini-api-key=${{ secrets.GEMINI_API_KEY }}"
             az containerapp update \
               --name ${{ env.APP_NAME }} \
               --resource-group ${{ env.RESOURCE_GROUP }} \
@@ -63,14 +70,14 @@ jobs:
               "AZURE_SERVER=${{ secrets.AZURE_SERVER }}" \
               "AZURE_DATABASE=${{ secrets.AZURE_DATABASE }}" \
               "AZURE_USER=${{ secrets.AZURE_USER }}" \
-              "AZURE_PASSWORD=${{ secrets.AZURE_PASSWORD }}" \
+              "AZURE_PASSWORD=secretref:azure-password" \
               "MYSQL_HOST=${{ secrets.MYSQL_HOST }}" \
               "MYSQL_PORT=${{ secrets.MYSQL_PORT }}" \
               "MYSQL_DATABASE=${{ secrets.MYSQL_DATABASE }}" \
               "MYSQL_USER=${{ secrets.MYSQL_USER }}" \
-              "MYSQL_PASSWORD=${{ secrets.MYSQL_PASSWORD }}" \
+              "MYSQL_PASSWORD=secretref:mysql-password" \
               "MYSQL_TABLE=${{ secrets.MYSQL_TABLE }}" \
-              "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}"
+              "GEMINI_API_KEY=secretref:gemini-api-key"
           else
             echo "Creando nueva aplicación..."
             az containerapp create \
@@ -81,16 +88,20 @@ jobs:
               --registry-server ${{ env.ACR_NAME }}.azurecr.io \
               --cpu 0.5 --memory 1.0Gi \
               --min-replicas 1 --max-replicas 1 \
+              --secrets \
+                "azure-password=${{ secrets.AZURE_PASSWORD }}" \
+                "mysql-password=${{ secrets.MYSQL_PASSWORD }}" \
+                "gemini-api-key=${{ secrets.GEMINI_API_KEY }}" \
               --env-vars "PYTHONUNBUFFERED=1" "SYNC_INTERVAL=60" \
               "AZURE_SERVER=${{ secrets.AZURE_SERVER }}" \
               "AZURE_DATABASE=${{ secrets.AZURE_DATABASE }}" \
               "AZURE_USER=${{ secrets.AZURE_USER }}" \
-              "AZURE_PASSWORD=${{ secrets.AZURE_PASSWORD }}" \
+              "AZURE_PASSWORD=secretref:azure-password" \
               "MYSQL_HOST=${{ secrets.MYSQL_HOST }}" \
               "MYSQL_PORT=${{ secrets.MYSQL_PORT }}" \
               "MYSQL_DATABASE=${{ secrets.MYSQL_DATABASE }}" \
               "MYSQL_USER=${{ secrets.MYSQL_USER }}" \
-              "MYSQL_PASSWORD=${{ secrets.MYSQL_PASSWORD }}" \
+              "MYSQL_PASSWORD=secretref:mysql-password" \
               "MYSQL_TABLE=${{ secrets.MYSQL_TABLE }}" \
-              "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}"
+              "GEMINI_API_KEY=secretref:gemini-api-key"
           fi

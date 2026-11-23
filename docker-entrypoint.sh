@@ -20,7 +20,7 @@ CYCLE_COUNT=0
 
 while true; do
   echo "==== SYNC START: $(date -u +'%Y-%m-%dT%H:%M:%SZ') ===="
-  python -u app.py
+  python -u app.py || echo "Advertencia: Fallo en sincronización principal, reintentando en el próximo ciclo..."
   echo "==== SYNC END: $(date -u +'%Y-%m-%dT%H:%M:%SZ') ===="
 
   CYCLE_COUNT=$((CYCLE_COUNT + 1))

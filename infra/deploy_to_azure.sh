@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-RESOURCE_GROUP="traking-web"
+RESOURCE_GROUP="Phx-replica"
 LOCATION="eastus"
 ACR_NAME="phxwinacr"
 CONTAINERAPPS_ENV="phx-win-env"

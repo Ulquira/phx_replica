@@ -13,10 +13,14 @@ RUN mkdir -p /usr/share/keyrings \
     && ACCEPT_EULA=Y apt-get install -y --no-install-recommends msodbcsql18 \
     && rm -rf /var/lib/apt/lists/*
 
+RUN useradd --create-home --shell /bin/sh appuser
+
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-COPY . .
+COPY --chown=appuser:appuser . .
 RUN chmod +x ./docker-entrypoint.sh
+
+USER appuser
 
 ENTRYPOINT ["./docker-entrypoint.sh"]

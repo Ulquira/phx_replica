@@ -1,10 +1,14 @@
-$ErrorActionPreference = "Stop"
+﻿$ErrorActionPreference = "Stop"
 
-$RESOURCE_GROUP = "traking-web"
+$RESOURCE_GROUP = "Phx-replica"
 $LOCATION = "centralus"
 $SERVER_NAME = "phx-win-mysql-$(Get-Random -Minimum 1000 -Maximum 9999)"
 $ADMIN_USER = "phxadmin"
-$ADMIN_PASS = "WinTelecom@2026!"
+$ADMIN_PASS = $env:MYSQL_ADMIN_PASSWORD
+
+if ([string]::IsNullOrWhiteSpace($ADMIN_PASS)) {
+    throw "Set the MYSQL_ADMIN_PASSWORD environment variable before running this script."
+}
 
 Write-Host "1. Creando Azure Database for MySQL Flexible Server (B1s - ~$10/mes)..."
 Write-Host "Nombre del servidor: $SERVER_NAME"

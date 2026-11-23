@@ -1,23 +1,12 @@
-import os
 import base64
 import logging
 from pathlib import Path
-import mysql.connector
-from dotenv import load_dotenv
 
-load_dotenv()
+from phx_sync.db import get_mysql_connection
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("sync_appsheet_photos")
 
-# Configuración de base de datos
-MYSQL_HOST = os.getenv("MYSQL_HOST")
-MYSQL_PORT = int(os.getenv("MYSQL_PORT", "3306"))
-MYSQL_DATABASE = os.getenv("MYSQL_DATABASE")
-MYSQL_USER = os.getenv("MYSQL_USER")
-MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD")
-
-# Directorio base del script
 BASE_DIR = Path(__file__).resolve().parent
 
 def find_images_directory() -> Path | None:
@@ -50,14 +39,7 @@ def sync_photos_to_base64():
     disk_files = {f.name.lower(): f for f in img_dir.rglob("*.jpg")}
     logger.info(f"Archivos .jpg detectados en disco: {len(disk_files)}")
 
-    conn = mysql.connector.connect(
-        host=MYSQL_HOST,
-        port=MYSQL_PORT,
-        user=MYSQL_USER,
-        password=MYSQL_PASSWORD,
-        database=MYSQL_DATABASE,
-        autocommit=True
-    )
+    conn = get_mysql_connection(autocommit=True)
     cur = conn.cursor(dictionary=True)
 
     # 1. Buscar filas que tengan ruta en Img_mejorada
