@@ -25,13 +25,16 @@ SUMMARY_CSV_PATH = PROJECT_ROOT / "sync_summary.csv"
 logger = logging.getLogger("azure_mysql_sync")
 logger.setLevel(logging.INFO)
 if not logger.handlers:
-    _file_handler = logging.FileHandler(LOG_PATH, encoding="utf-8")
-    _stream_handler = logging.StreamHandler()
     _formatter = logging.Formatter("%(asctime)s %(levelname)s %(message)s")
-    _file_handler.setFormatter(_formatter)
+    _stream_handler = logging.StreamHandler()
     _stream_handler.setFormatter(_formatter)
-    logger.addHandler(_file_handler)
     logger.addHandler(_stream_handler)
+    try:
+        _file_handler = logging.FileHandler(LOG_PATH, encoding="utf-8")
+        _file_handler.setFormatter(_formatter)
+        logger.addHandler(_file_handler)
+    except OSError:
+        logger.warning("Cannot open %s for writing; logging to stdout only.", LOG_PATH)
 
 FINGERPRINT_KEY_COLS: List[str] = [
     "Estado", "Estado OT", "Cuadrilla", "FechaUltiEsta", "F.Visita", "FechaIniVisi", "FechaFinVisi",
