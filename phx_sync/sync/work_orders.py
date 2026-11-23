@@ -4,7 +4,7 @@ import csv
 import hashlib
 import logging
 import zlib
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
@@ -146,17 +146,25 @@ def fetch_backfill_rows(
     conn: Any,
     columns: Sequence[Dict[str, Any]],
     start_date: str = "2026-09-11",
+    end_date: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
-    normalized_date = validate_iso_date(start_date)
+    normalized_start = validate_iso_date(start_date)
+    normalized_end = validate_iso_date(end_date) if end_date else None
     date_column = pick_date_column(columns)
 
-    logger.info("Querying Azure SQL for dates >= %s...", normalized_date)
     with conn.cursor() as cursor:
         if date_column:
             quoted_col = _quote_tsql_ident(date_column)
-            query = f"{WORK_ORDERS_BASE_QUERY} WHERE t.{quoted_col} >= ?"
-            cursor.execute(query, (normalized_date,))
+            if normalized_end:
+                logger.info("Querying Azure SQL for dates >= %s and < %s...", normalized_start, normalized_end)
+                query = f"{WORK_ORDERS_BASE_QUERY} WHERE t.{quoted_col} >= ? AND t.{quoted_col} < ?"
+                cursor.execute(query, (normalized_start, normalized_end))
+            else:
+                logger.info("Querying Azure SQL for dates >= %s...", normalized_start)
+                query = f"{WORK_ORDERS_BASE_QUERY} WHERE t.{quoted_col} >= ?"
+                cursor.execute(query, (normalized_start,))
         else:
+            logger.info("Querying Azure SQL without date filter...")
             cursor.execute(WORK_ORDERS_BASE_QUERY)
         return _rows_from_cursor(cursor)
 
@@ -551,32 +559,75 @@ def sync_once(lookback_days: Optional[int] = None, settings: Optional[Settings] 
             azure_conn.close()
 
 
-def run_backfill(start_date: str = "2026-09-11", settings: Optional[Settings] = None) -> None:
+def build_date_chunks(start_date: str, end_date: Optional[str] = None, chunk_days: int = 7) -> List[Tuple[str, Optional[str]]]:
+    """Split a date range into bounded [start, end) chunks to avoid OOM on large backfills."""
+    if chunk_days < 1:
+        raise ValueError(f"chunk_days must be >= 1, got {chunk_days}")
+    start_dt = datetime.strptime(validate_iso_date(start_date), "%Y-%m-%d")
+    if end_date:
+        end_dt = datetime.strptime(validate_iso_date(end_date), "%Y-%m-%d")
+        if end_dt <= start_dt:
+            raise ValueError(f"end_date ({end_date}) must be after start_date ({start_date})")
+    else:
+        end_dt = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
+
+    if (end_dt - start_dt).days <= chunk_days:
+        return [(start_dt.strftime("%Y-%m-%d"), end_dt.strftime("%Y-%m-%d") if end_date else None)]
+
+    chunks: List[Tuple[str, Optional[str]]] = []
+    cursor_dt = start_dt
+    while cursor_dt < end_dt:
+        next_dt = min(cursor_dt + timedelta(days=chunk_days), end_dt)
+        chunk_end = None if (not end_date and next_dt >= end_dt) else next_dt.strftime("%Y-%m-%d")
+        chunks.append((cursor_dt.strftime("%Y-%m-%d"), chunk_end))
+        cursor_dt = next_dt
+    return chunks
+
+
+def run_backfill(
+    start_date: str = "2026-09-11",
+    end_date: Optional[str] = None,
+    chunk_days: int = 7,
+    settings: Optional[Settings] = None,
+) -> None:
     cfg = settings or get_settings()
-    normalized_date = validate_iso_date(start_date)
+    normalized_start = validate_iso_date(start_date)
+    normalized_end = validate_iso_date(end_date) if end_date else None
+    chunks = build_date_chunks(normalized_start, normalized_end, chunk_days=chunk_days)
+    range_label = f"{normalized_start}..{normalized_end}" if normalized_end else f"from {normalized_start}"
+
     started_at = datetime.now()
     azure_conn = None
     mysql_conn = None
     status = "success"
-    message = f"Retroactive backfill completed from {normalized_date}"
+    message = f"Retroactive backfill completed ({range_label})"
     error: Optional[str] = None
     rows_processed = inserted = updated = skipped = 0
 
     try:
-        logger.info("=== STARTING RETROACTIVE BACKFILL (from %s) ===", normalized_date)
+        logger.info("=== STARTING RETROACTIVE BACKFILL (%s, %s chunk(s)) ===", range_label, len(chunks))
         azure_conn = get_azure_connection(cfg)
         mysql_conn = get_mysql_connection(cfg, autocommit=True)
         ensure_control_table(mysql_conn)
 
         columns = get_source_columns(azure_conn)
-        rows = fetch_backfill_rows(azure_conn, columns, normalized_date)
-        rows_processed = len(rows)
-        logger.info("Fetched %s rows from Azure SQL for period.", rows_processed)
-
         table_name = ensure_mysql_table(mysql_conn, columns, cfg.mysql_table)
         target_columns = get_target_columns(mysql_conn, table_name, cfg.mysql_database)
 
-        inserted, updated, skipped = _diff_and_upsert(mysql_conn, table_name, columns, rows, target_columns)
+        for idx, (c_start, c_end) in enumerate(chunks, 1):
+            logger.info("Chunk %s/%s: %s -> %s", idx, len(chunks), c_start, c_end or "now")
+            rows = fetch_backfill_rows(azure_conn, columns, c_start, c_end)
+            rows_processed += len(rows)
+            if rows:
+                c_ins, c_upd, c_skip = _diff_and_upsert(mysql_conn, table_name, columns, rows, target_columns)
+                inserted += c_ins
+                updated += c_upd
+                skipped += c_skip
+                logger.info(
+                    "Chunk %s/%s done: rows=%s, inserted=%s, updated=%s, skipped=%s",
+                    idx, len(chunks), len(rows), c_ins, c_upd, c_skip,
+                )
+
         log_run_summary(rows_processed, inserted, updated, skipped)
         logger.info("Backfill duration: %.1fs", (datetime.now() - started_at).total_seconds())
     except Exception as exc:

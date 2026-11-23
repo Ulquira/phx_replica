@@ -11,7 +11,11 @@ echo "==== INICIANDO SINCRONIZACION DE CATALOGOS ===="
 python -u sync_catalogs.py || echo "Advertencia: Fallo en catálogos, pero continuando..."
 
 echo "==== INICIANDO RECUPERACION RETROACTIVA (BACKFILL) ===="
-python -u backfill_sync.py || echo "Advertencia: Fallo en backfill, pero continuando..."
+if [ -n "$BACKFILL_START_DATE" ]; then
+  python -u backfill_sync.py "$BACKFILL_START_DATE" || echo "Advertencia: Fallo en backfill, pero continuando..."
+else
+  python -u backfill_sync.py || echo "Advertencia: Fallo en backfill, pero continuando..."
+fi
 
 echo "==== INICIANDO MEJORA DE FOTOS CON IA (GEMINI) ===="
 python -u enhance_photos_batch.py || echo "Advertencia: Fallo en mejora de fotos con IA, pero continuando..."

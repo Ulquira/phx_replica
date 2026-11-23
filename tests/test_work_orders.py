@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 
 from phx_sync.db import quote_ident, safe_name
 from phx_sync.sync.work_orders import (
+    build_date_chunks,
     compute_row_fingerprint,
     fetch_backfill_rows,
     fetch_source_rows,
@@ -78,6 +79,31 @@ class TestWorkOrders(unittest.TestCase):
         sql, params = mock_cursor.execute.call_args[0]
         self.assertIn("DATEADD(day, -?, CAST(GETDATE() AS date))", sql)
         self.assertEqual(params, (2,))
+
+    def test_build_date_chunks_splits_long_range(self):
+        chunks = build_date_chunks("2026-10-01", "2026-10-20", chunk_days=7)
+        self.assertEqual(
+            chunks,
+            [
+                ("2026-10-01", "2026-10-08"),
+                ("2026-10-08", "2026-10-15"),
+                ("2026-10-15", "2026-10-20"),
+            ],
+        )
+
+    def test_fetch_backfill_rows_with_end_date_is_parameterized(self):
+        mock_cursor = MagicMock()
+        mock_cursor.description = [("OrdenId",)]
+        mock_cursor.fetchall.return_value = [(101,)]
+        mock_conn = MagicMock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+
+        columns = [{"name": "OrdenId", "type": "int"}, {"name": "FechaCreacion", "type": "datetime"}]
+        fetch_backfill_rows(mock_conn, columns, start_date="2026-10-01", end_date="2026-10-08")
+
+        sql, params = mock_cursor.execute.call_args[0]
+        self.assertIn("WHERE t.[FechaCreacion] >= ? AND t.[FechaCreacion] < ?", sql)
+        self.assertEqual(params, ("2026-10-01", "2026-10-08"))
 
 
 if __name__ == "__main__":
